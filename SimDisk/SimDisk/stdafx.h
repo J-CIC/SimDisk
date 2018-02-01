@@ -14,6 +14,8 @@
 #include <sstream>
 #include <iostream>
 #include <cmath>
+#include <vector>
+#include <time.h>
 using namespace std;
 
 

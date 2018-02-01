@@ -11,10 +11,13 @@ public:
 	unsigned long i_blocks;//文件所占块数
 	unsigned short i_uid;//所属用户
 	unsigned short i_gid;//所属用户组
-	unsigned short i_zone[13];//块指针
+	unsigned int i_zone[13];//块指针
 	unsigned short i_count;//引用计数
 	unsigned short i_nlink;//与该节点建立链接的文件数(硬链接数)
 	iNode();
+	iNode(unsigned int no, unsigned long size, unsigned long block,vector<unsigned int> zone);
 	~iNode();
+	void printInfo();
+	void printBlock();
 };
 
