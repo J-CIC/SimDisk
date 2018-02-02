@@ -39,7 +39,6 @@ FileSystem::~FileSystem()
 {
 	root.printInfo();
 	root.printBlock();
-	destroy_block(898);
 	fileDisk.close();
 }
 
@@ -309,6 +308,31 @@ int FileSystem::destroy_block(int id)
 	byte = byte & mask;
 	//写回
 	fileDisk.seekg(s_block.bitmap_pos + byte_pos);
+	fileDisk.write((char *)&byte, 1);
+	return 1;
+}
+
+//收回iNode
+int FileSystem::destroy_inode(int id)
+{
+	unsigned int byte_pos = floor(id / 8);//偏移字节
+	int byte_idx = id % 8;//字节内地址下标
+	if (byte_idx == 0){
+		//整除则回退一位
+		byte_pos--;
+		byte_idx = 8;
+	}
+	char byte = 0;//存放内容的位图
+	unsigned char mask = 255;
+	unsigned char xor_mask = 1;
+	xor_mask = xor_mask << (8 - byte_idx);
+	mask = mask^xor_mask;
+	//读取并置0
+	fileDisk.seekg(s_block.inodemap_pos + byte_pos);
+	fileDisk.read((char *)&byte, 1);
+	byte = byte & mask;
+	//写回
+	fileDisk.seekg(s_block.inodemap_pos + byte_pos);
 	fileDisk.write((char *)&byte, 1);
 	return 1;
 }
