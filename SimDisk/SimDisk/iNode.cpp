@@ -50,4 +50,6 @@ void iNode::printBlock()
 	for (; i < i_blocks&&i<10; i++){
 		cout << i_zone[i] << endl;
 	}
+	cout << i_zone[10] << endl;
+
 }

@@ -16,6 +16,7 @@ private:
 	int alloc_inode(unsigned long size,iNode &node,bool is_dentry = false);//申请iNode节点,size为字节
 	int alloc_blocks(int num, vector<unsigned int> &list);
 	int destroy_inode(int id);//销毁iNode节点
+	int destroy_block(int id);//销毁block
 	int read_indoe();//读取iNode节点信息
 	int write_inode(iNode node);//更新iNode信息
 	template<typename T> int seekAndGet(unsigned long pos, T &item);
