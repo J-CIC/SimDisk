@@ -30,6 +30,7 @@ FileSystem::FileSystem()
 		fileDisk.close();
 		fileDisk.open(fileName, ios::binary | ios::in | ios::out);
 		int ret = alloc_inode(272384, root, true);//设置根节点
+		init_dentry();
 	}
 	seekAndGet<superBlock>(0,s_block);
 	seekAndGet<iNode>(s_block.inode_table, root);
@@ -161,7 +162,7 @@ int FileSystem::alloc_blocks(int num, vector<unsigned int> &list){
 			fileDisk.write((char *)bytes, s_block.blockSize);//位图改变整块写回
 		}
 	}
-
+	clearBlockContent(list);//清除分配的块中的内容
 	//排放block
 	int block_per_num = s_block.blockSize / sizeof(unsigned int);//每块可存的block的id的数目
 	if (list.size() <= 10){
@@ -334,5 +335,39 @@ int FileSystem::destroy_inode(int id)
 	//写回
 	fileDisk.seekg(s_block.inodemap_pos + byte_pos);
 	fileDisk.write((char *)&byte, 1);
+	return 1;
+}
+
+//批量清理块中的内容
+int FileSystem::clearBlockContent(vector<unsigned int> list)
+{
+	//生成空内容并写入
+	char bytes[1024];
+	memset(bytes, 0, 1024);
+	for (auto item : list)
+	{
+		fileDisk.seekg((item-1)*s_block.blockSize, ios::beg);
+		fileDisk.write(bytes, 1024);
+	}
+	return 1;
+}
+
+
+//初始化dentry
+int FileSystem::init_dentry()
+{
+	root_dentry = dentry();
+	root_dentry.inode = root;
+	root_dentry.fileName = "/";
+	root_dentry.parent = &root_dentry;
+	curr_dentry = root_dentry;
+	return 1;
+}
+
+//读取子目录
+int FileSystem::getSubDentry(const dentry& p_dir)
+{
+	iNode p_node = p_dir.inode;
+	file p_file = file(this,p_node);
 	return 1;
 }

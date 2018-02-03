@@ -36,6 +36,15 @@
     <ClInclude Include="toolkit.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="dir.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="dentry.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="file.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -56,5 +65,17 @@
     <ClCompile Include="toolkit.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="dir.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="dentry.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="file.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ClassDiagram.cd" />
   </ItemGroup>
 </Project>

@@ -79,6 +79,9 @@
     <Text Include="ReadMe.txt" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="dentry.h" />
+    <ClInclude Include="dir.h" />
+    <ClInclude Include="file.h" />
     <ClInclude Include="FileSystem.h" />
     <ClInclude Include="iNode.h" />
     <ClInclude Include="stdafx.h" />
@@ -87,6 +90,9 @@
     <ClInclude Include="toolkit.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="dentry.cpp" />
+    <ClCompile Include="dir.cpp" />
+    <ClCompile Include="file.cpp" />
     <ClCompile Include="FileSystem.cpp" />
     <ClCompile Include="iNode.cpp" />
     <ClCompile Include="SimDisk.cpp" />
@@ -96,6 +102,9 @@
     </ClCompile>
     <ClCompile Include="superBlock.cpp" />
     <ClCompile Include="toolkit.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ClassDiagram.cd" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
