@@ -2,14 +2,23 @@
 #include "file.h"
 
 
-file::file(FileSystem *fs, iNode node)
+file::file()
 {
-	this->fs = fs;
+}
+
+file::file(iNode node, vector<unsigned int>list)
+{
 	this->inode = node;
-	pos = 0;
+	this->blocks_list = list;
 }
 
 
 file::~file()
 {
+}
+
+
+void file::setBlockList()
+{
+	
 }

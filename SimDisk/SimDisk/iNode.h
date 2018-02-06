@@ -1,4 +1,5 @@
 #pragma once
+
 class iNode
 {
 public:
@@ -20,4 +21,3 @@ public:
 	void printInfo();
 	void printBlock();
 };
-

@@ -21,4 +21,3 @@ public:
 	void printInfo();
 	int init();//初始化新的superBlock
 };
-

@@ -8,4 +8,3 @@ public:
 	dir();
 	~dir();
 };
-

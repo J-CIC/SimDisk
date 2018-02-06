@@ -12,7 +12,7 @@ public:
 	vector<dentry> sibling_list;
 	dentry * parent;
 	void setSubDentry(vector<dentry> list);
+	void showDentry();
 	dentry();
 	~dentry();
 };
-

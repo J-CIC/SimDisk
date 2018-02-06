@@ -30,6 +30,8 @@ FileSystem::FileSystem()
 		fileDisk.close();
 		fileDisk.open(fileName, ios::binary | ios::in | ios::out);
 		int ret = alloc_inode(272384, root, true);//设置根节点
+		root.i_size = 0;
+		seekAndSave<iNode>(s_block.inode_table, root);
 		init_dentry();
 	}
 	seekAndGet<superBlock>(0,s_block);
@@ -56,8 +58,8 @@ int FileSystem::alloc_inode(unsigned long size, iNode &node,bool is_dentry)
 	bool is_end = false;
 	int inode_no = 1;//使用的iNode号码
 	unsigned char* bytes = new unsigned char[s_block.blockSize];//读取的数组
-	int block_node_num = s_block.blockSize / sizeof(unsigned int);//每块可存的iNode的id的数目
 
+	int block_node_num = s_block.blockSize / sizeof(unsigned int);//每块可存的iNode的id的数目
 	if (blocks_needed <= 10){
 		//可以在10个直接块中放下
 	}
@@ -73,6 +75,7 @@ int FileSystem::alloc_inode(unsigned long size, iNode &node,bool is_dentry)
 		//加上一个三次间接块
 		blocks_needed += 3 + 2 * block_node_num + block_node_num*block_node_num;
 	}
+
 	//寻找空闲的iNode
 	for (int i = 0; i < ceil(s_block.inode_num / (8 * s_block.blockSize)); i++){
 		if (is_end)
@@ -361,13 +364,112 @@ int FileSystem::init_dentry()
 	root_dentry.fileName = "/";
 	root_dentry.parent = &root_dentry;
 	curr_dentry = root_dentry;
+	getSubDentry(root_dentry);
 	return 1;
 }
 
 //读取子目录
 int FileSystem::getSubDentry(const dentry& p_dir)
 {
+	vector<unsigned int> blocks_list;
 	iNode p_node = p_dir.inode;
-	file p_file = file(this,p_node);
+	readBlockIds(p_node, blocks_list);//读取内容块列表
+	file p_file = file(p_node,blocks_list);
+	return 1;
+}
+
+//读取对应iNode的内容块，不包含间接块
+int FileSystem::readBlockIds(iNode inode, vector<unsigned int> &blocks_list)
+{
+	unsigned int block_num = inode.i_blocks;
+	//十个间接块
+	for (int i = 0; i < 10; i++){
+		if (inode.i_zone[i] == 0){
+			break;
+		}
+		blocks_list.push_back(inode.i_zone[i]);
+	}
+	//一次间接块
+	if (inode.i_zone[10] != 0){
+		int pos = (inode.i_zone[10] - 1)*s_block.blockSize;
+		fileDisk.seekg(pos, ios::beg);
+		int loop_times = ceil(s_block.blockSize / sizeof(unsigned int));
+		for (int i = 0; i < loop_times; i++){
+			unsigned int blcoks_num = 0;
+			fileDisk.read((char*)&blcoks_num, sizeof(unsigned int));
+			if (blcoks_num>0){
+				blocks_list.push_back(blcoks_num);
+			}
+		}
+	}
+	//二次间接块
+	if (inode.i_zone[11] != 0){
+		int pos = (inode.i_zone[11] - 1)*s_block.blockSize;
+		fileDisk.seekg(pos, ios::beg);
+		int loop_times = ceil(s_block.blockSize / sizeof(unsigned int));//计算每块能放下的数目
+		vector<unsigned int> once_list;
+		for (int i = 0; i < loop_times; i++){
+			unsigned int blcoks_num = 0;
+			fileDisk.read((char*)&blcoks_num, sizeof(unsigned int));
+			if (blcoks_num>0){
+				once_list.push_back(blcoks_num);//存入中间缓存列表
+			}
+		}
+		for (auto item : once_list){
+			int pos = (item - 1)*s_block.blockSize;
+			fileDisk.seekg(pos, ios::beg);
+			for (int i = 0; i < loop_times; i++){
+				unsigned int blcoks_num = 0;
+				fileDisk.read((char*)&blcoks_num, sizeof(unsigned int));//计算每块能放下的数目
+				if (blcoks_num>0){
+					blocks_list.push_back(blcoks_num);//读出最终的块号
+				}
+			}
+		}
+	}
+	//三次间接块
+	if (inode.i_zone[12] != 0){
+		int pos = (inode.i_zone[11] - 1)*s_block.blockSize;
+		fileDisk.seekg(pos, ios::beg);
+		int loop_times = ceil(s_block.blockSize / sizeof(unsigned int));//计算每块能放下的数目
+		vector<unsigned int> twice_list, once_list;
+		for (int i = 0; i < loop_times; i++){
+			unsigned int blcoks_num = 0;
+			fileDisk.read((char*)&blcoks_num, sizeof(unsigned int));
+			if (blcoks_num>0){
+				twice_list.push_back(blcoks_num);//存入二次中间缓存列表
+			}
+		}
+		for (auto item : twice_list){
+			int pos = (item - 1)*s_block.blockSize;
+			fileDisk.seekg(pos, ios::beg);
+			for (int i = 0; i < loop_times; i++){
+				unsigned int blcoks_num = 0;
+				fileDisk.read((char*)&blcoks_num, sizeof(unsigned int));
+				if (blcoks_num>0){
+					once_list.push_back(blcoks_num);//放入一次缓存表
+				}
+			}
+		}
+		for (auto item : once_list){
+			int pos = (item - 1)*s_block.blockSize;
+			fileDisk.seekg(pos, ios::beg);
+			for (int i = 0; i < loop_times; i++){
+				unsigned int blcoks_num = 0;
+				fileDisk.read((char*)&blcoks_num, sizeof(unsigned int));//计算每块能放下的数目
+				if (blcoks_num>0){
+					blocks_list.push_back(blcoks_num);//读出最终的块号
+				}
+			}
+		}
+	}
+	return 1;
+}
+
+//创建目录
+int FileSystem::mkdir(string filename)
+{
+	vector<string> dir_list;
+	SplitString(filename,dir_list,"/");
 	return 1;
 }
