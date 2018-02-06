@@ -20,6 +20,13 @@ void dentry::setSubDentry(vector<dentry> list)
 	this->child_list = list;
 }
 
+//ÅĞ¶ÏÊÇ·ñÎªÄ¿Â¼
+bool dentry::is_dir(){
+	char mask = 1;
+	mask = mask << 14;
+	return inode.i_mode&mask;
+}
+
 void dentry::showDentry()
 {
 	cout << "." << endl;

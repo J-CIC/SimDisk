@@ -29,6 +29,8 @@ private:
 	int getSubDentry(const dentry& p_dir);//获取子目录
 	int clearBlockContent(vector<unsigned int> list);//清空块内容
 	int mkdir(string name);//创建文件夹
+	int setCurrDir(vector<string> list);//切换当前目录
+	int findDentry(vector<string> list, dentry &p_dentry , char firstChar);//寻找目录
 	template<typename T> int seekAndGet(unsigned long pos, T &item);//定位指针并读取
 	template<typename T> int seekAndSave(unsigned long pos, T &item);//定位指针并存储
 	int readBlockIds(iNode inode, vector<unsigned int> &blocks_list);//读取间接块的

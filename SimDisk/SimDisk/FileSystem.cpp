@@ -36,12 +36,13 @@ FileSystem::FileSystem()
 	}
 	seekAndGet<superBlock>(0,s_block);
 	seekAndGet<iNode>(s_block.inode_table, root);
-	s_block.printInfo();
+	mkdir("/var/www/nginx/test");
 }
 FileSystem::~FileSystem()
 {
-	root.printInfo();
-	root.printBlock();
+	//s_block.printInfo();
+	//root.printInfo();
+	//root.printBlock();
 	fileDisk.close();
 }
 
@@ -471,5 +472,63 @@ int FileSystem::mkdir(string filename)
 {
 	vector<string> dir_list;
 	SplitString(filename,dir_list,"/");
+	string folder_name = "";
+	//获取创建的文件夹名字
+	if (dir_list.size() == 1){
+		folder_name =dir_list[0];
+	}
+	else if(dir_list.size()>1){
+		folder_name = dir_list[dir_list.size() - 1];
+	}
+	//去掉文件夹名字后的目录字符串
+	dir_list.resize(dir_list.size() - 1);
+	dentry temp_dentry;//创建的文件夹所在的目录
+	findDentry(dir_list, temp_dentry,filename[0]);//寻找父文件夹
+
+
+
+	if (folder_name.length() <= 0){
+		return -1;//文件名长度不合法
+	}
+	for (auto item : dir_list){
+		cout << item << endl;
+	}
 	return 1;
+}
+
+//设定工作目录
+int FileSystem::setCurrDir(vector<string> list)
+{
+
+	return 1;
+}
+
+//寻找目录项
+int FileSystem::findDentry(vector<string> list,dentry &p_dentry,char firstChar)
+{
+	p_dentry = curr_dentry;
+	if (firstChar == '/'){
+		p_dentry = root_dentry;//从根目录开始
+		list.erase(list.begin());//由于根目录开始删除首个空的位置
+	}
+	for (auto item : list){
+		if (item == ".."){//父层目录
+			p_dentry = *p_dentry.parent;
+		}
+		else if (item == "."){//当前目录
+			p_dentry = p_dentry;
+		}
+		else{//遍历寻找目录
+			for (auto child_dentry : p_dentry.child_list){
+				if (child_dentry.fileName == item){
+					//如果名字对上了，还要判断文件类型
+					if (child_dentry.is_dir()){
+						p_dentry = child_dentry;
+						return 1;
+					}
+				}
+			}
+		}
+	}
+	return 0;//没找到
 }
