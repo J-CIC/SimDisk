@@ -51,10 +51,12 @@ int FileSystem::alloc_inode(unsigned long size, iNode &node,bool is_dentry)
 {
 	unsigned int blocks_needed = ceil((double)size / s_block.blockSize);//需要存储内容的块数
 	//最大大小超过限制，iNode节点不足时
-	if (size == 0 || size>s_block.maxBytes || s_block.inode_remain == 0){
+	if (size>s_block.maxBytes || s_block.inode_remain == 0){
 		return -1;
 	}
-
+	if (size == 0){
+		blocks_needed = 10;
+	}
 	fileDisk.seekg(s_block.inodemap_pos, ios::beg);//挪动到位图位置
 	bool is_end = false;
 	int inode_no = 1;//使用的iNode号码
@@ -484,7 +486,9 @@ int FileSystem::mkdir(string filename)
 	dir_list.resize(dir_list.size() - 1);
 	dentry temp_dentry;//创建的文件夹所在的目录
 	findDentry(dir_list, temp_dentry,filename[0]);//寻找父文件夹
-
+	iNode dir_node;
+	int ret = alloc_inode(0, dir_node, true);
+	dir s_dir(folder_name,dir_node.ino);
 
 
 	if (folder_name.length() <= 0){

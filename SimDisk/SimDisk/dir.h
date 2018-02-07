@@ -6,5 +6,6 @@ public:
 	char dir_name[124];
 	unsigned int ino;
 	dir();
+	dir(string name, unsigned int id);
 	~dir();
 };
