@@ -491,6 +491,10 @@ int FileSystem::mkdir(string filename)
 	dir s_dir(folder_name,dir_node.ino);
 
 
+
+	//TODO 加上读取内容
+
+
 	if (folder_name.length() <= 0){
 		return -1;//文件名长度不合法
 	}
