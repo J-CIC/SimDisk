@@ -36,3 +36,13 @@ void dentry::showDentry()
 		cout << item.fileName << endl;
 	}
 }
+
+//½«dentry×ªÎªdir
+vector<dir> dentry::getDirList(){
+	vector<dir> ret_list;
+	for (auto item : child_list){
+		dir temp = dir(item.fileName, item.inode.ino);
+		ret_list.push_back(temp);
+	}
+	return ret_list;
+}

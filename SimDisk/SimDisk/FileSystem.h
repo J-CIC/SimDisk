@@ -14,7 +14,6 @@ public:
 	iNode root;//根节点
 	dentry root_dentry;//根目录
 	dentry curr_dentry;//工作目录，即当前目录
-	fstream* getFileDisk();
 	FileSystem();
 	~FileSystem();
 private:
@@ -31,7 +30,8 @@ private:
 	int mkdir(string name);//创建文件夹
 	int setCurrDir(vector<string> list);//切换当前目录
 	int findDentry(vector<string> list, dentry &p_dentry , char firstChar);//寻找目录
+	int InitDentry(dentry& p_dentry);//初始化dentry项
 	template<typename T> int seekAndGet(unsigned long pos, T &item);//定位指针并读取
 	template<typename T> int seekAndSave(unsigned long pos, T &item);//定位指针并存储
-	int readBlockIds(iNode inode, vector<unsigned int> &blocks_list);//读取间接块的
+	int readBlockIds(iNode inode, vector<unsigned int> &blocks_list);//读取对应iNode的内容块，不包含间接块
 };

@@ -489,10 +489,8 @@ int FileSystem::mkdir(string filename)
 	iNode dir_node;
 	int ret = alloc_inode(0, dir_node, true);
 	dir s_dir(folder_name,dir_node.ino);
-
-
-
-	//TODO 加上读取内容
+	
+	
 
 
 	if (folder_name.length() <= 0){
@@ -527,6 +525,10 @@ int FileSystem::findDentry(vector<string> list,dentry &p_dentry,char firstChar)
 			p_dentry = p_dentry;
 		}
 		else{//遍历寻找目录
+			if (p_dentry.child_list.size() == 0){
+				//子目录数目为0，可能是尚未读取目录
+				InitDentry(p_dentry);
+			}
 			for (auto child_dentry : p_dentry.child_list){
 				if (child_dentry.fileName == item){
 					//如果名字对上了，还要判断文件类型
@@ -539,4 +541,22 @@ int FileSystem::findDentry(vector<string> list,dentry &p_dentry,char firstChar)
 		}
 	}
 	return 0;//没找到
+}
+
+//初始化dentry
+int FileSystem::InitDentry(dentry & p_dentry){
+	readBlockIds(p_dentry.inode, p_dentry.block_list);//保存block_list
+	int dir_num_per_block = s_block.blockSize / sizeof(dir);//每一个块能存放的dir数目
+	bool end_flag = false;
+	dir t_dir;
+	for (auto b_idx : p_dentry.block_list){
+		int base_pos = (b_idx - 1)*s_block.blockSize;//基础偏移地址
+		for (int i = 0; i < dir_num_per_block; i++){
+			seekAndGet<dir>(base_pos + i*sizeof(dir), t_dir);
+			if (t_dir.ino>0 && t_dir.ino <= s_block.inode_num){
+				dentry t_dentry;
+				t_dentry.inode = t_dir.ino;
+			} 
+		}
+	}
 }
