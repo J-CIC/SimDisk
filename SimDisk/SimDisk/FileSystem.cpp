@@ -36,7 +36,7 @@ FileSystem::FileSystem()
 	seekAndGet<superBlock>(0, s_block);
 	seekAndGet<iNode>(s_block.inode_table, root);
 	init_root_dentry();
-	int ret = mkdir("var");
+	int ret = mkdir("var"); 
 	root_dentry.showDentry();
 	cout << "ret is : " << ret << endl;
 }
