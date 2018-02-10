@@ -1,10 +1,16 @@
 #include "stdafx.h"
 #include "dentry.h"
-
+#include "toolkit.h"
 
 dentry::dentry()
 {
 
+}
+
+dentry::dentry(string fileName, iNode inode)
+{
+	this->fileName = fileName;
+	this->inode = inode;
 }
 
 dentry::~dentry()
@@ -22,19 +28,20 @@ void dentry::setSubDentry(vector<dentry> list)
 
 //判断是否为目录
 bool dentry::is_dir(){
-	char mask = 1;
+	unsigned short mask = 1;
 	mask = mask << 14;
 	return inode.i_mode&mask;
 }
 
 void dentry::showDentry()
 {
-	cout << "." << endl;
-	cout << ".." << endl;
+	cout << "." << "\t";
+	cout << ".." << "\t";
 	for (auto item : child_list)
 	{
-		cout << item.fileName << endl;
+		cout << item.fileName << "\t";
 	}
+	cout << endl;
 }
 
 //将dentry转为dir
@@ -45,4 +52,13 @@ vector<dir> dentry::getDirList(){
 		ret_list.push_back(temp);
 	}
 	return ret_list;
+}
+
+void dentry::setParent(dentry &p)
+{
+	this->parent = &p;
+}
+
+void dentry::addChild(dentry &s){
+	this->child_list.push_back(s);
 }

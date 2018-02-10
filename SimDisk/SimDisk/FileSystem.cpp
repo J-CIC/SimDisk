@@ -32,11 +32,13 @@ FileSystem::FileSystem()
 		int ret = alloc_inode(272384, root, true);//设置根节点
 		root.i_size = 0;
 		seekAndSave<iNode>(s_block.inode_table, root);
-		init_dentry();
 	}
-	seekAndGet<superBlock>(0,s_block);
+	seekAndGet<superBlock>(0, s_block);
 	seekAndGet<iNode>(s_block.inode_table, root);
-	mkdir("/var/www/nginx/test");
+	init_root_dentry();
+	int ret = mkdir("var");
+	root_dentry.showDentry();
+	cout << "ret is : " << ret << endl;
 }
 FileSystem::~FileSystem()
 {
@@ -269,13 +271,14 @@ int FileSystem::alloc_blocks(int num, vector<unsigned int> &list){
 	return 1;
 }
 
-int FileSystem::write_inode(iNode node){
+int FileSystem::write_inode(iNode &node){
 	//检查范围
 	if (node.ino<1 || node.ino>s_block.inode_num){
 		return -1;
 	}
-	fileDisk.seekg(s_block.inode_table + (node.ino - 1)*sizeof(iNode), ios::beg);
-	fileDisk.write((char *)&node, sizeof(iNode));
+	node.i_mtime = time(NULL);//修改时间
+	node.i_atime = node.i_mtime;//访问时间
+	seekAndSave<iNode>(s_block.inode_table + (node.ino - 1)*sizeof(iNode), node);
 	return 1;
 }
 
@@ -359,24 +362,25 @@ int FileSystem::clearBlockContent(vector<unsigned int> list)
 }
 
 
-//初始化dentry
-int FileSystem::init_dentry()
+//初始化根dentry
+int FileSystem::init_root_dentry()
 {
 	root_dentry = dentry();
 	root_dentry.inode = root;
 	root_dentry.fileName = "/";
-	root_dentry.parent = &root_dentry;
-	curr_dentry = root_dentry;
+	root_dentry.setParent(root_dentry);
+	curr_dentry = &root_dentry;
 	getSubDentry(root_dentry);
 	return 1;
 }
 
 //读取子目录
-int FileSystem::getSubDentry(const dentry& p_dir)
+int FileSystem::getSubDentry(dentry& p_dir)
 {
 	vector<unsigned int> blocks_list;
 	iNode p_node = p_dir.inode;
 	readBlockIds(p_node, blocks_list);//读取内容块列表
+	InitDentry(p_dir);
 	file p_file = file(p_node,blocks_list);
 	return 1;
 }
@@ -474,30 +478,36 @@ int FileSystem::mkdir(string filename)
 {
 	vector<string> dir_list;
 	SplitString(filename,dir_list,"/");
+	dentry *temp_dentry;//暂存的变量
 	string folder_name = "";
 	//获取创建的文件夹名字
-	if (dir_list.size() == 1){
-		folder_name =dir_list[0];
-	}
-	else if(dir_list.size()>1){
-		folder_name = dir_list[dir_list.size() - 1];
+	folder_name = dir_list[dir_list.size() - 1];
+	int ret = findDentry(dir_list, temp_dentry, filename[0]);//判断是否存在
+	if (ret == 1){
+		//存在
+		return -1;
 	}
 	//去掉文件夹名字后的目录字符串
 	dir_list.resize(dir_list.size() - 1);
-	dentry temp_dentry;//创建的文件夹所在的目录
-	findDentry(dir_list, temp_dentry,filename[0]);//寻找父文件夹
+	ret = findDentry(dir_list, temp_dentry,filename[0]);//寻找父文件夹
+	if (ret == 0){
+		return 0;
+	}
 	iNode dir_node;
-	int ret = alloc_inode(0, dir_node, true);
-	dir s_dir(folder_name,dir_node.ino);
-	
+	ret = alloc_inode(0, dir_node, true);
+	if (ret == -1){
+		return ret;
+	}
+	dir s_dir(folder_name, dir_node.ino);//生成dir
+	dentry created_dentry(s_dir.dir_name, dir_node);//生成dentry项
+	created_dentry.setParent(*temp_dentry);
+	temp_dentry->addChild(created_dentry);//加入父目录的子项
+	SaveDentry(*temp_dentry);
 	
 
 
 	if (folder_name.length() <= 0){
 		return -1;//文件名长度不合法
-	}
-	for (auto item : dir_list){
-		cout << item << endl;
 	}
 	return 1;
 }
@@ -510,30 +520,33 @@ int FileSystem::setCurrDir(vector<string> list)
 }
 
 //寻找目录项
-int FileSystem::findDentry(vector<string> list,dentry &p_dentry,char firstChar)
+int FileSystem::findDentry(vector<string> list,dentry *&p_dentry,char firstChar)
 {
 	p_dentry = curr_dentry;
+	if (list.size() == 0){
+		return 1;//直接当前目录下创建
+	}
 	if (firstChar == '/'){
-		p_dentry = root_dentry;//从根目录开始
+		p_dentry = &root_dentry;//从根目录开始
 		list.erase(list.begin());//由于根目录开始删除首个空的位置
 	}
 	for (auto item : list){
 		if (item == ".."){//父层目录
-			p_dentry = *p_dentry.parent;
+			p_dentry = p_dentry->parent;
 		}
 		else if (item == "."){//当前目录
 			p_dentry = p_dentry;
 		}
 		else{//遍历寻找目录
-			if (p_dentry.child_list.size() == 0){
+			if (p_dentry->child_list.size() == 0){
 				//子目录数目为0，可能是尚未读取目录
-				InitDentry(p_dentry);
+				InitDentry(*p_dentry);
 			}
-			for (auto child_dentry : p_dentry.child_list){
+			for (auto child_dentry : p_dentry->child_list){
 				if (child_dentry.fileName == item){
 					//如果名字对上了，还要判断文件类型
 					if (child_dentry.is_dir()){
-						p_dentry = child_dentry;
+						p_dentry = &child_dentry;
 						return 1;
 					}
 				}
@@ -547,16 +560,54 @@ int FileSystem::findDentry(vector<string> list,dentry &p_dentry,char firstChar)
 int FileSystem::InitDentry(dentry & p_dentry){
 	readBlockIds(p_dentry.inode, p_dentry.block_list);//保存block_list
 	int dir_num_per_block = s_block.blockSize / sizeof(dir);//每一个块能存放的dir数目
-	bool end_flag = false;
+	int count = 0,max_dir = floor(p_dentry.inode.i_size / sizeof(dir));
 	dir t_dir;
 	for (auto b_idx : p_dentry.block_list){
+		if (count == max_dir){
+			break;
+		}
 		int base_pos = (b_idx - 1)*s_block.blockSize;//基础偏移地址
-		for (int i = 0; i < dir_num_per_block; i++){
+		for (int i = 0; i < dir_num_per_block&&count<max_dir; i++){
 			seekAndGet<dir>(base_pos + i*sizeof(dir), t_dir);
 			if (t_dir.ino>0 && t_dir.ino <= s_block.inode_num){
 				dentry t_dentry;
-				t_dentry.inode = t_dir.ino;
-			} 
+				read_inode(t_dir.ino, t_dentry.inode);//读取iNode
+				t_dentry.fileName = t_dir.dir_name;
+				t_dentry.setParent(p_dentry);
+				p_dentry.addChild(t_dentry);
+				count++;
+				if (count == max_dir){
+					break;
+				}
+			}
 		}
 	}
+	return 1;
+}
+
+//保存dentry
+int FileSystem::SaveDentry(dentry & p_dentry){
+	p_dentry.inode.i_size = p_dentry.child_list.size()*sizeof(dir);//更新占用大小
+	write_inode(p_dentry.inode);//保存iNode
+	int dir_num_per_block = s_block.blockSize / sizeof(dir);//每一个块能存放的dir数目
+	vector<dir> save_list = p_dentry.getDirList();
+	int count = 0, max_dir = save_list.size();
+	for (auto b_idx : p_dentry.block_list){
+		if (count == max_dir){
+			break;
+		}
+		int base_pos = (b_idx - 1)*s_block.blockSize;//基础偏移地址
+		for (int i = 0; i < dir_num_per_block && count<max_dir; i++){
+			seekAndSave<dir>(base_pos + i*sizeof(dir), save_list[count]);
+			count++;
+		}
+	}
+	return 1;
+}
+
+//读取iNode节点
+int FileSystem::read_inode(int ino, iNode &node){
+	unsigned long pos = s_block.inode_table + (ino-1)*sizeof(iNode);
+	seekAndGet<iNode>(pos, node);
+	return 1;
 }

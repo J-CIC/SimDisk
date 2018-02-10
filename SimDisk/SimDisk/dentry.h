@@ -12,11 +12,14 @@ public:
 	vector<unsigned int> block_list;//iNode对应的内容block_list
 	vector<dentry> child_list;
 	vector<dentry> sibling_list;
-	bool is_dir();//判断是否是目录
 	dentry * parent;
-	void setSubDentry(vector<dentry> list);
-	void showDentry();
+	bool is_dir();//判断是否是目录
+	void setParent(dentry &);
+	void addChild(dentry &);
+	void setSubDentry(vector<dentry> list);//设置字目录
+	void showDentry();//显示目录
 	vector<dir> getDirList();//将dentry转为dir
 	dentry();
+	dentry(string fileName,iNode inode);
 	~dentry();
 };
