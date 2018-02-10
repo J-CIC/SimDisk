@@ -18,11 +18,11 @@ dentry::~dentry()
 }
 
 //获取子目录
-void dentry::setSubDentry(vector<dentry> list)
+void dentry::setSubDentry(vector<dentry *> list)
 {
 	this->child_list.clear();
 	dentry father = *this;
-	this->child_list.push_back(*this);
+	this->child_list.push_back(this);
 	this->child_list = list;
 }
 
@@ -39,7 +39,7 @@ void dentry::showDentry()
 	cout << ".." << "\t";
 	for (auto item : child_list)
 	{
-		cout << item.fileName << "\t";
+		cout << item->fileName << "\t";
 	}
 	cout << endl;
 }
@@ -48,7 +48,7 @@ void dentry::showDentry()
 vector<dir> dentry::getDirList(){
 	vector<dir> ret_list;
 	for (auto item : child_list){
-		dir temp = dir(item.fileName, item.inode.ino);
+		dir temp = dir(item->fileName, item->inode.ino);
 		ret_list.push_back(temp);
 	}
 	return ret_list;
@@ -59,6 +59,19 @@ void dentry::setParent(dentry &p)
 	this->parent = &p;
 }
 
-void dentry::addChild(dentry &s){
+void dentry::addChild(dentry *s){
 	this->child_list.push_back(s);
+	inode.i_size = child_list.size()*sizeof(dir);//更新占用大小
+}
+
+void dentry::removeChild(dentry *s){
+	//遍历找到对应的Dentry项删除
+	for (auto iter = child_list.begin(); iter != child_list.end();){
+		if ((*iter)->inode.ino == s->inode.ino){
+			iter = child_list.erase(iter);
+			break;
+		}
+		++iter;
+	}
+	inode.i_size = child_list.size()*sizeof(dir);//更新占用大小
 }
