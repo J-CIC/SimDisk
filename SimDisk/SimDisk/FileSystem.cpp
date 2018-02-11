@@ -36,12 +36,27 @@ FileSystem::FileSystem()
 	seekAndGet<superBlock>(0, s_block);
 	seekAndGet<iNode>(s_block.inode_table, root);
 	init_root_dentry();
-	int ret = rm("var"); 
-	root_dentry.showDentry();
-	cout << "ret is : " << ret << endl;
+	
 }
 FileSystem::~FileSystem()
 {
+	int ret;
+	//ret = mkdir("var");
+	//cout << "mkdir ret : " << ret << endl;
+	//ret = mkdir("/var/www2");
+	//cout << "mkdir ret : " << ret << endl;
+	//ret = newfile("././.././var/www/test3");
+	//cout << "newfile ret is : "<<ret << endl;
+	//ret = del("../../../../.././var/www");
+	//cout << "del ret is : " << ret << endl;
+	//ret = rd("../../../../.././var/www2");
+	//cout << "del ret is : " << ret << endl;
+	root_dentry.showDentry();
+	dentry * temp = new dentry();
+	vector<string> list;
+	SplitString(".././././var", list,"/");
+	findDentry(list, temp, '/');
+	temp->showDentry();
 	s_block.printInfo();
 	//root.printInfo();
 	//root.printBlock();
@@ -112,10 +127,11 @@ int FileSystem::alloc_inode(unsigned long size, iNode &node,bool is_dentry)
 	vector<unsigned int> block_list;
 	alloc_blocks(blocks_needed, block_list);//申请磁盘块
 	node = iNode(inode_no,size,blocks_needed,block_list);
+	node.i_mode = 1911;//777
 	if (is_dentry){
 		unsigned short mode = 1;
 		mode = mode << 14;
-		node.i_mode = mode;//设定为文件夹
+		node.i_mode = mode+1911;//设定为文件夹
 	}
 	write_inode(node);
 	//更新相应的超级块信息
@@ -495,10 +511,30 @@ int FileSystem::newfile(string filename)
 	string file_name = "";
 	//获取创建的文件名字
 	file_name = dir_list[dir_list.size() - 1];
-	int ret = findDentry(dir_list, temp_dentry, filename[0]);//判断是否存在
+	if (file_name.length() <= 0){
+		return -1;//文件名长度不合法
+	}
+	int ret = findDentry(dir_list, temp_dentry, filename[0],2);//判断是否存在
 	if (ret == 2){
 		//存在文件
+		return -1;
 	}
+	//去掉文件夹名字后的目录字符串
+	dir_list.resize(dir_list.size() - 1);
+	ret = findDentry(dir_list, temp_dentry, filename[0]);//寻找父文件夹
+	if (ret == 0){
+		return 0;
+	}
+	iNode dir_node;
+	ret = alloc_inode(0, dir_node);
+	if (ret == -1){
+		return ret;
+	}
+	dir s_dir(file_name, dir_node.ino);//生成dir
+	dentry *created_dentry = new dentry(s_dir.dir_name, dir_node);//生成dentry项
+	created_dentry->setParent(*temp_dentry);
+	temp_dentry->addChild(created_dentry);//加入父目录的子项
+	SaveDentry(*temp_dentry);
 	return 1;
 }
 
@@ -511,6 +547,9 @@ int FileSystem::mkdir(string filename)
 	string folder_name = "";
 	//获取创建的文件夹名字
 	folder_name = dir_list[dir_list.size() - 1];
+	if (folder_name.length() <= 0){
+		return -1;//文件名长度不合法
+	}
 	int ret = findDentry(dir_list, temp_dentry, filename[0]);//判断是否存在
 	if (ret == 1){
 		//存在文件夹
@@ -532,17 +571,11 @@ int FileSystem::mkdir(string filename)
 	created_dentry->setParent(*temp_dentry);
 	temp_dentry->addChild(created_dentry);//加入父目录的子项
 	SaveDentry(*temp_dentry);
-	
-
-
-	if (folder_name.length() <= 0){
-		return -1;//文件名长度不合法
-	}
 	return 1;
 }
 
-//删除目录或文件
-int FileSystem::rm(string filename)
+//删除目录,返回1表示成功,返回2表示目录不为空,需要确认
+int FileSystem::rd(string filename,bool force)
 {
 	vector<string> dir_list;
 	SplitString(filename, dir_list, "/");
@@ -557,10 +590,7 @@ int FileSystem::rm(string filename)
 	}
 	else if (ret == 2){
 		//是文件类型
-		//REMAIN TEST
-		withdraw_node(temp_dentry->inode);//收回iNode节点
-		temp_dentry->parent->removeChild(temp_dentry);//移除内存内的项
-		SaveDentry(*temp_dentry->parent);//保存父目录的信息修改
+		return 2;
 	}
 	else if (ret == 1){
 		//文件夹格式
@@ -572,8 +602,38 @@ int FileSystem::rm(string filename)
 			SaveDentry(*(temp_dentry->parent));//保存父目录的信息修改
 		}
 		else{
+			if (force){
 
+				return 1;
+			}
+			return 3;
 		}
+	}
+	return 1;
+}
+
+//删除文件
+int FileSystem::del(string filename){
+	vector<string> dir_list;
+	SplitString(filename, dir_list, "/");
+	dentry *temp_dentry;//暂存的变量
+	string folder_name = "";
+	//获取创建的文件夹名字
+	folder_name = dir_list[dir_list.size() - 1];
+	int ret = findDentry(dir_list, temp_dentry, filename[0],2);//判断是否存在
+	if (ret == 0){
+		//不存在文件
+		return -1;
+	}
+	else if (ret == 2){
+		//是文件类型
+		withdraw_node(temp_dentry->inode);//收回iNode节点
+		temp_dentry->parent->removeChild(temp_dentry);//移除内存内的项
+		SaveDentry(*temp_dentry->parent);//保存父目录的信息修改
+	}
+	else if (ret == 1){
+		//文件夹格式
+		return -1;
 	}
 	return 1;
 }
@@ -585,44 +645,53 @@ int FileSystem::setCurrDir(vector<string> list)
 	return 1;
 }
 
-//寻找目录项,返回1表示找到文件夹，返回2表示找到文件，0表示未找到
-int FileSystem::findDentry(vector<string> list,dentry *&p_dentry,char firstChar)
+//寻找目录项,返回1表示找到文件夹，返回2表示找到文件，0表示未找到，type为1找文件夹，type为2找文件
+int FileSystem::findDentry(vector<string> list,dentry *&p_dentry,char firstChar,int type)
 {
+	int ret = 0;
 	p_dentry = curr_dentry;
 	if (list.size() == 0){
 		return 1;//直接当前目录下创建
 	}
 	if (firstChar == '/'){
 		p_dentry = &root_dentry;//从根目录开始
-		list.erase(list.begin());//由于根目录开始删除首个空的位置
+		list.erase(list.begin());//若第一个字符是/则split后第一位为空
 	}
 	for (auto item : list){
+		ret = 0;
 		if (item == ".."){//父层目录
 			p_dentry = p_dentry->parent;
+			ret = 1;
 		}
 		else if (item == "."){//当前目录
-			
+			ret = 1;
 		}
 		else{//遍历寻找目录
-			if (p_dentry->child_list.size() == 0){
-				//子目录数目为0，可能是尚未读取目录
-				InitDentry(*p_dentry);
-			}
 			for (auto child_dentry : p_dentry->child_list){
 				if (child_dentry->fileName == item){
 					//如果名字对上了，还要判断文件类型
 					if (child_dentry->is_dir()){
 						p_dentry = child_dentry;
-						return 1;
+						if (p_dentry->child_list.size()==0)
+							InitDentry(*p_dentry);//初始化
+						//若不是路径上的最后一个，则必须是文件类型
+						if (type==1 || item!=list[list.size()-1])
+							ret = 1;//找的是文件夹
 					}
 					else{
-						return 2;//是文件
+						p_dentry = child_dentry;
+						//若是路径上的最后一个，则看是不是寻找的文件
+						if (type == 2 && item == list[list.size() - 1])
+							ret = 2;//找的是文件
 					}
 				}
 			}
 		}
+		if (ret == 0){
+			return ret;
+		}
 	}
-	return 0;//没找到
+	return ret;
 }
 
 //初始化dentry

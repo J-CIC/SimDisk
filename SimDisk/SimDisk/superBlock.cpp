@@ -18,7 +18,7 @@ int superBlock::init()
 	this->inode_num = 10240;//i节点数目
 	this->inode_remain = 10240;//i节点剩余数目
 	this->block_num = 1024 * 100;//磁盘块数
-	this->block_remain = 1024 * 100;//磁盘块剩余数
+	this->block_remain = 1024 * 100; //磁盘块剩余数
 	this->inode_table = this->blockSize*1;
 	this->inodemap_pos = ceil((this->inode_table + inode_num*sizeof(iNode)) / blockSize) * blockSize;//空闲iNode位图偏移位置
 	this->bitmap_pos = ceil((inodemap_pos + inode_num/8)/blockSize)*blockSize;//空闲块位图偏移位置
@@ -26,6 +26,7 @@ int superBlock::init()
 	this->first_data_block_no = ceil(first_data_block/blockSize)+1;//第一个数据块的号码
 	this->blockSize_bit = 10;//块大小占用位数
 	this->maxBytes = 1024*1024*10;//文件最大大小
+	this->block_remain -= first_data_block_no;//去掉保留块
 	return 1;
 }
 
