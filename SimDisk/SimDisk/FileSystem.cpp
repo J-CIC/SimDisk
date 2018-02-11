@@ -296,6 +296,16 @@ int FileSystem::seekAndSave(unsigned long pos, T& item){
 	return 1;
 }
 
+//删除文件后的收回文件对应的节点和块
+int FileSystem::withdraw_node(iNode node){
+	vector<unsigned int> block_list;
+	readBlockIds(node, block_list);
+	destroy_inode(node.ino);//修改inode位图
+	for (auto idx : block_list){
+		destroy_block(idx);//修改block位图
+	}
+	return 1;
+}
 
 //收回block，即修改位图
 int FileSystem::destroy_block(int id)
@@ -545,16 +555,18 @@ int FileSystem::rm(string filename)
 	else if (ret == 2){
 		//是文件类型
 		//REMAIN TEST
-		temp_dentry->parent->removeChild(temp_dentry);
-		SaveDentry(*temp_dentry->parent);
+		withdraw_node(temp_dentry->inode);//收回iNode节点
+		temp_dentry->parent->removeChild(temp_dentry);//移除内存内的项
+		SaveDentry(*temp_dentry->parent);//保存父目录的信息修改
 	}
 	else if (ret == 1){
 		//文件夹格式
 		if (temp_dentry->inode.i_size == 0){
 			//空目录
 			dentry *p_dentry = temp_dentry->parent;
-			p_dentry->removeChild(temp_dentry);
-			SaveDentry(*(temp_dentry->parent));
+			withdraw_node(temp_dentry->inode);//收回iNode节点
+			p_dentry->removeChild(temp_dentry);//移除内存内的项
+			SaveDentry(*(temp_dentry->parent));//保存父目录的信息修改
 		}
 		else{
 
