@@ -36,7 +36,7 @@ FileSystem::FileSystem()
 	seekAndGet<superBlock>(0, s_block);
 	seekAndGet<iNode>(s_block.inode_table, root);
 	init_root_dentry();
-	int ret = rm("var"); 
+	int ret = rm("var3"); 
 	root_dentry.showDentry();
 	cout << "ret is : " << ret << endl;
 }
@@ -473,6 +473,22 @@ int FileSystem::readBlockIds(iNode inode, vector<unsigned int> &blocks_list)
 	return 1;
 }
 
+//创建文件夹
+int FileSystem::newfile(string filename)
+{
+	vector<string> dir_list;
+	SplitString(filename, dir_list, "/");
+	dentry *temp_dentry;//暂存的变量
+	string file_name = "";
+	//获取创建的文件名字
+	file_name = dir_list[dir_list.size() - 1];
+	int ret = findDentry(dir_list, temp_dentry, filename[0]);//判断是否存在
+	if (ret == 2){
+		//存在文件
+	}
+	return 1;
+}
+
 //创建目录
 int FileSystem::mkdir(string filename)
 {
@@ -499,9 +515,9 @@ int FileSystem::mkdir(string filename)
 		return ret;
 	}
 	dir s_dir(folder_name, dir_node.ino);//生成dir
-	dentry created_dentry(s_dir.dir_name, dir_node);//生成dentry项
-	created_dentry.setParent(*temp_dentry);
-	temp_dentry->addChild(&created_dentry);//加入父目录的子项
+	dentry *created_dentry = new dentry(s_dir.dir_name, dir_node);//生成dentry项
+	created_dentry->setParent(*temp_dentry);
+	temp_dentry->addChild(created_dentry);//加入父目录的子项
 	SaveDentry(*temp_dentry);
 	
 
@@ -541,7 +557,7 @@ int FileSystem::rm(string filename)
 			SaveDentry(*(temp_dentry->parent));
 		}
 		else{
-			cout << 12 << endl;
+
 		}
 	}
 	return 1;
@@ -554,7 +570,7 @@ int FileSystem::setCurrDir(vector<string> list)
 	return 1;
 }
 
-//寻找目录项
+//寻找目录项,返回1表示找到文件夹，返回2表示找到文件，0表示未找到
 int FileSystem::findDentry(vector<string> list,dentry *&p_dentry,char firstChar)
 {
 	p_dentry = curr_dentry;

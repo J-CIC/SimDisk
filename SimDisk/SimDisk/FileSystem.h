@@ -27,6 +27,7 @@ private:
 	int write_inode(iNode &node);//更新iNode信息
 	int getSubDentry(dentry& p_dir);//获取子目录
 	int clearBlockContent(vector<unsigned int> list);//清空块内容
+	int newfile(string name);//创建文件
 	int mkdir(string name);//创建文件夹
 	int rm(string name);//删除文件或文件夹
 	int setCurrDir(vector<string> list);//切换当前目录
