@@ -36,13 +36,13 @@ FileSystem::FileSystem()
 	seekAndGet<superBlock>(0, s_block);
 	seekAndGet<iNode>(s_block.inode_table, root);
 	init_root_dentry();
-	int ret = rm("var3"); 
+	int ret = rm("var"); 
 	root_dentry.showDentry();
 	cout << "ret is : " << ret << endl;
 }
 FileSystem::~FileSystem()
 {
-	//s_block.printInfo();
+	s_block.printInfo();
 	//root.printInfo();
 	//root.printBlock();
 	fileDisk.close();
@@ -301,9 +301,12 @@ int FileSystem::withdraw_node(iNode node){
 	vector<unsigned int> block_list;
 	readBlockIds(node, block_list);
 	destroy_inode(node.ino);//修改inode位图
+	s_block.inode_remain++;//修改剩余iNode数目
 	for (auto idx : block_list){
 		destroy_block(idx);//修改block位图
 	}
+	s_block.block_remain += block_list.size();//修改剩余block数目
+	seekAndSave<superBlock>(0, s_block);
 	return 1;
 }
 
