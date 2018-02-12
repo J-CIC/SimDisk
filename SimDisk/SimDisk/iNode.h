@@ -19,5 +19,4 @@ public:
 	iNode(unsigned int no, unsigned long size, unsigned long block,vector<unsigned int> zone);
 	~iNode();
 	void printInfo();
-	void printBlock();
 };

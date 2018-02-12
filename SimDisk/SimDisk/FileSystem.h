@@ -9,6 +9,8 @@
 class FileSystem
 {
 public:
+	const static int FOLDER_TYPE = 1;
+	const static int FILE_TYPE = 2;
 	static const string fileName;//磁盘所在的文件名
 	superBlock s_block;//超级块
 	iNode root;//根节点
@@ -28,12 +30,17 @@ private:
 	int write_inode(iNode &node);//更新iNode信息
 	int getSubDentry(dentry& p_dir);//获取子目录
 	int clearBlockContent(vector<unsigned int> list);//清空块内容
-	int newfile(string name);//创建文件
+	int copy(string from, string to);
+	int newfile(string name, unsigned long size=0);//创建文件
 	int mkdir(string name);//创建文件夹
 	int rd(string filename, bool force=false);//删除文件夹
 	int del(string filename);//删除文件
+	int cat(string filename);//读取文件并显示
 	int setCurrDir(vector<string> list);//切换当前目录
-	int findDentry(vector<string> list, dentry *&p_dentry , char firstChar,int type=1);//寻找目录，指针引用，因为可能要修改地址
+	//用名称寻找目录或文件，指针引用，因为可能要修改地址，type默认寻找文件夹
+	int findDentryWithName(string name, dentry *&p_dentry, int type = FOLDER_TYPE);
+	//寻找目录或文件，指针引用，因为可能要修改地址，type默认寻找文件夹
+	int findDentry(vector<string> list, dentry *&p_dentry, char firstChar, int type = FOLDER_TYPE);
 	int InitDentry(dentry& p_dentry);//初始化dentry项
 	int SaveDentry(dentry& p_dentry);//初始化dentry项
 	template<typename T> int seekAndGet(unsigned long pos, T &item);//定位指针并读取

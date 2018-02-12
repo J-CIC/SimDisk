@@ -43,13 +43,3 @@ void iNode::printInfo()
 	cout << "引用计数: " << i_count << endl;
 	cout << "与该节点建立链接的文件数(硬链接数): " << i_nlink << endl;
 }
-
-void iNode::printBlock()
-{
-	int i = 0;
-	for (; i < i_blocks&&i<10; i++){
-		cout << i_zone[i] << endl;
-	}
-	cout << i_zone[10] << endl;
-
-}

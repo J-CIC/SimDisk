@@ -51,12 +51,15 @@ FileSystem::~FileSystem()
 	//cout << "del ret is : " << ret << endl;
 	//ret = rd("../../../../.././var/www2");
 	//cout << "del ret is : " << ret << endl;
+	//dentry * temp = new dentry();
+	//findDentryWithName("test2.txt", temp, FILE_TYPE);
+	//temp->inode.printInfo();
+	//del("test3.txt");
+	ret = copy("test3.txt","../../../test4.txt");
+	cout << "copy ret is: " << ret << endl;
+	ret = cat("test3.txt");
+	cout << "cat ret is : " << ret << endl;
 	root_dentry.showDentry();
-	dentry * temp = new dentry();
-	vector<string> list;
-	SplitString(".././././var", list,"/");
-	findDentry(list, temp, '/');
-	temp->showDentry();
 	s_block.printInfo();
 	//root.printInfo();
 	//root.printBlock();
@@ -95,6 +98,11 @@ int FileSystem::alloc_inode(unsigned long size, iNode &node,bool is_dentry)
 		//加上一个三次间接块
 		blocks_needed += 3 + 2 * block_node_num + block_node_num*block_node_num;
 	}
+	if (blocks_needed > s_block.block_remain){
+		//超过剩余量
+		return -1;
+	}
+	
 
 	//寻找空闲的iNode
 	for (int i = 0; i < ceil(s_block.inode_num / (8 * s_block.blockSize)); i++){
@@ -502,8 +510,94 @@ int FileSystem::readBlockIds(iNode inode, vector<unsigned int> &blocks_list)
 	return 1;
 }
 
-//创建文件夹
-int FileSystem::newfile(string filename)
+//复制文件，可从本机或模拟磁盘中复制
+int FileSystem::copy(string from, string to){
+	string host_cmd = "<host>";
+	if (from.compare(0, host_cmd.size(), host_cmd)==0){
+		//以<host>开头的指令
+		from = from.substr(host_cmd.size());
+		fstream file_from(from, ios::binary | ios::in | ios::out);
+		if (!file_from){
+			//文件不存在
+			return 0;
+		}
+		else{
+			file_from.seekg(0,ios::end);
+			unsigned long size = file_from.tellg();//文件大小，Byte
+			file_from.seekg(0, ios::beg);
+			if (size > s_block.maxBytes){
+				file_from.close();
+				return -2;//超过最大文件大小
+			}
+			int ret = newfile(to,size);
+			if (ret == -1){
+				file_from.close();
+				return ret;//申请失败
+			}
+			iNode des_node;
+			read_inode(ret,des_node);//读取要存放的iNode
+			vector<unsigned int> block_list; 
+			readBlockIds(des_node, block_list);//获取写入的块
+			//声明读取和暂存的块变量并进行初始化
+			char * content = new char[s_block.blockSize];
+			memset(content, 0, s_block.blockSize);
+			for (auto block_id : block_list){
+				unsigned long pos = (block_id - 1)*s_block.blockSize;
+				fileDisk.seekg(pos,ios::beg);
+				file_from.read((char *)content, s_block.blockSize);
+				int real_size = file_from.gcount();
+				fileDisk.write((char *)content, real_size);
+			}
+			file_from.close();
+		}
+	}
+	else{
+		//从模拟系统中复制到模拟系统
+		dentry *fromDentry, *toDentry;
+		int ret = findDentryWithName(from, fromDentry, FILE_TYPE);
+		if (ret == 0){
+			//未找到文件
+			return 0;
+		}
+		ret = newfile(to, fromDentry->inode.i_size);
+		if (ret == -1){
+			//iNode数目不足或block数目不足
+			return ret;
+		}
+		findDentryWithName(to, toDentry, FILE_TYPE);
+		//获取读写的block
+		vector<unsigned int> read_list, write_list;
+		readBlockIds(fromDentry->inode, read_list);
+		readBlockIds(toDentry->inode, write_list);
+		//初始化内容块
+		char * content = new char[s_block.blockSize];
+		memset(content, 0, s_block.blockSize);
+		//获得文件大小
+		unsigned long size = fromDentry->inode.i_size;
+		int read_size = 0;
+		for (int i = 0; i < write_list.size(); i++){
+			//计算一次读取的大小
+			if (size > s_block.blockSize){
+				read_size = s_block.blockSize;
+				size -= s_block.blockSize;
+			}
+			else{
+				read_size = size;
+				size = 0;
+			}
+			unsigned long read_pos = (read_list[i] - 1)*s_block.blockSize;
+			unsigned long write_pos = (write_list[i] - 1)*s_block.blockSize;
+			fileDisk.seekg(read_pos, ios::beg);
+			fileDisk.read((char *)content, read_size);
+			fileDisk.seekg(write_pos, ios::beg);
+			fileDisk.write((char *)content, read_size);
+		}
+	}
+	return 1;
+}
+
+//创建文件夹,返回值为iNode的id
+int FileSystem::newfile(string filename,unsigned long size)
 {
 	vector<string> dir_list;
 	SplitString(filename, dir_list, "/");
@@ -514,7 +608,7 @@ int FileSystem::newfile(string filename)
 	if (file_name.length() <= 0){
 		return -1;//文件名长度不合法
 	}
-	int ret = findDentry(dir_list, temp_dentry, filename[0],2);//判断是否存在
+	int ret = findDentry(dir_list, temp_dentry, filename[0],FILE_TYPE);//判断是否存在
 	if (ret == 2){
 		//存在文件
 		return -1;
@@ -525,17 +619,17 @@ int FileSystem::newfile(string filename)
 	if (ret == 0){
 		return 0;
 	}
-	iNode dir_node;
-	ret = alloc_inode(0, dir_node);
+	iNode file_node;
+	ret = alloc_inode(size, file_node);
 	if (ret == -1){
 		return ret;
 	}
-	dir s_dir(file_name, dir_node.ino);//生成dir
-	dentry *created_dentry = new dentry(s_dir.dir_name, dir_node);//生成dentry项
+	dir s_dir(file_name, file_node.ino);//生成file
+	dentry *created_dentry = new dentry(s_dir.dir_name, file_node);//生成dentry项
 	created_dentry->setParent(*temp_dentry);
 	temp_dentry->addChild(created_dentry);//加入父目录的子项
 	SaveDentry(*temp_dentry);
-	return 1;
+	return file_node.ino;
 }
 
 //创建目录
@@ -620,7 +714,7 @@ int FileSystem::del(string filename){
 	string folder_name = "";
 	//获取创建的文件夹名字
 	folder_name = dir_list[dir_list.size() - 1];
-	int ret = findDentry(dir_list, temp_dentry, filename[0],2);//判断是否存在
+	int ret = findDentry(dir_list, temp_dentry, filename[0],FILE_TYPE);//判断是否存在
 	if (ret == 0){
 		//不存在文件
 		return -1;
@@ -638,6 +732,34 @@ int FileSystem::del(string filename){
 	return 1;
 }
 
+//读取文件
+int FileSystem::cat(string filename){
+	dentry *temp;
+	findDentryWithName(filename, temp, FILE_TYPE);
+	readBlockIds(temp->inode, temp->block_list);//读取block
+	char *content = new char[s_block.blockSize];
+	memset(content, 0, s_block.blockSize);
+	unsigned long size = temp->inode.i_size;
+	int read_size = 0;
+	for (auto block_id : temp->block_list){
+		if (size > s_block.blockSize){
+			read_size = s_block.blockSize;
+			size -= s_block.blockSize;
+		}
+		else{
+			read_size = size;
+			size = 0;
+		}
+		unsigned long pos = (block_id - 1)*s_block.blockSize;
+		fileDisk.seekg(pos, ios::beg);
+		fileDisk.read((char *)content, read_size);
+		int real_size = fileDisk.gcount();
+		string t(content, content + read_size);
+		cout << t;
+	}
+	return 1;
+}
+
 //设定工作目录
 int FileSystem::setCurrDir(vector<string> list)
 {
@@ -645,7 +767,18 @@ int FileSystem::setCurrDir(vector<string> list)
 	return 1;
 }
 
-//寻找目录项,返回1表示找到文件夹，返回2表示找到文件，0表示未找到，type为1找文件夹，type为2找文件
+//通过名字寻找目录项,返回1表示找到文件夹，返回2表示找到文件，0表示未找到，type为1找文件夹，type为2找文件
+int FileSystem::findDentryWithName(string name, dentry *&p_dentry, int type)
+{
+	int ret = 0;
+	vector<string> dir_list;
+	SplitString(name, dir_list, "/");
+	ret = findDentry(dir_list, p_dentry, name[0], type);
+	return ret;
+}
+
+
+//通过路径vector寻找目录项,返回1表示找到文件夹，返回2表示找到文件，0表示未找到，type为1找文件夹，type为2找文件
 int FileSystem::findDentry(vector<string> list,dentry *&p_dentry,char firstChar,int type)
 {
 	int ret = 0;
@@ -675,14 +808,14 @@ int FileSystem::findDentry(vector<string> list,dentry *&p_dentry,char firstChar,
 						if (p_dentry->child_list.size()==0)
 							InitDentry(*p_dentry);//初始化
 						//若不是路径上的最后一个，则必须是文件类型
-						if (type==1 || item!=list[list.size()-1])
-							ret = 1;//找的是文件夹
+						if (type == FOLDER_TYPE || item != list[list.size() - 1])
+							ret = FOLDER_TYPE;//找的是文件夹
 					}
 					else{
 						p_dentry = child_dentry;
 						//若是路径上的最后一个，则看是不是寻找的文件
-						if (type == 2 && item == list[list.size() - 1])
-							ret = 2;//找的是文件
+						if (type == FILE_TYPE && item == list[list.size() - 1])
+							ret = FILE_TYPE;//找的是文件
 					}
 				}
 			}
