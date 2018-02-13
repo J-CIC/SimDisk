@@ -11,6 +11,7 @@ dentry::dentry(string fileName, iNode inode)
 {
 	this->fileName = fileName;
 	this->inode = inode;
+	this->pathName = "";
 }
 
 dentry::~dentry()
@@ -24,6 +25,14 @@ void dentry::setSubDentry(vector<dentry *> list)
 	dentry father = *this;
 	this->child_list.push_back(this);
 	this->child_list = list;
+}
+
+//获取路径名称
+string dentry::getPathName(){
+	if (this->fileName == "/"){
+		return "/";
+	}
+	return this->pathName;
 }
 
 //判断是否为目录
@@ -57,6 +66,12 @@ vector<dir> dentry::getDirList(){
 void dentry::setParent(dentry &p)
 {
 	this->parent = &p;
+	if (this->fileName == "/"){
+		this->pathName = "";
+	}
+	else{
+		this->pathName = p.pathName + "/" + this->fileName;
+	}
 }
 
 void dentry::addChild(dentry *s){

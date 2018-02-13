@@ -8,6 +8,7 @@
 int _tmain(int argc, _TCHAR* argv[])
 {
 	FileSystem fs;
+	fs.serve();
 	return 0;
 }
 

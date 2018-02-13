@@ -40,30 +40,137 @@ FileSystem::FileSystem()
 }
 FileSystem::~FileSystem()
 {
-	int ret;
-	//ret = mkdir("var");
-	//cout << "mkdir ret : " << ret << endl;
-	//ret = mkdir("/var/www2");
-	//cout << "mkdir ret : " << ret << endl;
-	//ret = newfile("././.././var/www/test3");
-	//cout << "newfile ret is : "<<ret << endl;
-	//ret = del("../../../../.././var/www");
-	//cout << "del ret is : " << ret << endl;
-	//ret = rd("../../../../.././var/www2");
-	//cout << "del ret is : " << ret << endl;
-	//dentry * temp = new dentry();
-	//findDentryWithName("test2.txt", temp, FILE_TYPE);
-	//temp->inode.printInfo();
-	//del("test3.txt");
-	ret = copy("test3.txt","../../../test4.txt");
-	cout << "copy ret is: " << ret << endl;
-	ret = cat("test3.txt");
-	cout << "cat ret is : " << ret << endl;
-	root_dentry.showDentry();
-	s_block.printInfo();
-	//root.printInfo();
-	//root.printBlock();
+	string cmd;
 	fileDisk.close();
+}
+
+//服务
+int FileSystem::serve(){
+	string cmd;
+	outputPrompt();
+	while (getline(cin, cmd)){
+		if (cmd == "exit"){
+			break;
+		}
+		else{
+			parseCmd(cmd);
+		}
+		outputPrompt();
+	}
+	return 1;
+}
+
+//解析命令
+int FileSystem::parseCmd(string cmd)
+{
+	int ret = 0;
+	vector<string>cmd_list;
+	stringstream s(cmd);
+	s >> cmd;
+	string temp;
+	while (s >> temp){
+		cmd_list.push_back(temp);
+	}
+	if (cmd == "newfile"){
+		if (cmd_list.size() == 1){
+			ret = newfile(cmd_list[0]);
+		}
+		else{
+			cout << "newfile accept one parameter" << endl;
+		}
+	}
+	else if (cmd == "dir"){
+		dentry *temp;
+		if (cmd_list.size() == 1){
+			ret = findDentryWithName(cmd_list[0], temp);
+			temp->showDentry();
+		}
+		else if (cmd_list.size() == 0){
+			curr_dentry->showDentry();
+		}
+		else{
+			cout << "dir accept less than one parameter"<<endl;
+		}
+	}
+	else if (cmd == "cd"){
+		if (cmd_list.size() >= 1){
+			ret = cd(cmd_list[0]);
+			if (ret == 2||ret ==0){
+				cout << "No such directory : " << cmd_list[0] << endl;
+			}
+		}
+	}
+	else if (cmd == "del"){
+		if (cmd_list.size() == 0){
+			cout << "del accept at least one parameter" << endl;
+		}
+		else{
+			for (auto name : cmd_list){
+				int ret = del(name);
+				if (ret == 0){
+					cout << "file: " <<name <<" not found " << endl;
+				}
+				else if (ret == -1){
+					cout << "file: " << name << "is not file" << endl;
+				}
+			}
+		}
+	}
+	else if (cmd == "mkdir"){
+		if (cmd_list.size() == 0){
+			cout << "mkdir accept at least one parameter" << endl;
+		}
+		else{
+			for (auto name : cmd_list){
+				ret = mkdir(name);
+				if (ret == 0){
+					cout << "file: " << name << " not found " << endl;
+				}
+				else if (ret == -1){
+					cout << "file: " << name << "is not file" << endl;
+				}
+			}
+		}
+	}
+	else if (cmd == "rd"){
+		if (cmd_list.size() == 0){
+			cout << "del accept at least one parameter" << endl;
+		}
+		else{
+			for (auto name : cmd_list){
+				ret = rd(name);
+				if (ret == 3){
+					//非空目录
+					cout << "the directory is not empty, force delete? " << "Y/N :" << endl;
+					string choice;
+					cin >> choice;
+					if (choice == "Y"||choice=="y"){
+						ret = rd(name, true);//强制删除
+					}
+				}
+				if (ret == 0|| ret == 2){
+					cout << "No such folder: " << name << endl;
+				}
+			}
+		}
+	}
+	else if (cmd == "cat"){
+		if (cmd_list.size() != 1){
+			cout << "cat accept only one parameter" << endl;
+		}
+		else{
+			ret = cat(cmd_list[0]);
+			if (ret == 0||ret == 1){
+				cout << "No such file: " << cmd_list[0] << endl;
+			}
+		}
+	}
+	return ret;
+}
+
+//输出提示符
+void FileSystem::outputPrompt(){
+	cout << "root:" << curr_dentry->getPathName() << "# ";
 }
 
 //申请iNode节点,size单位为Byte
@@ -668,6 +775,16 @@ int FileSystem::mkdir(string filename)
 	return 1;
 }
 
+//切换目录
+int FileSystem::cd(string filename){
+	dentry *temp;
+	int ret = findDentryWithName(filename, temp);
+	if (ret == 1){
+		curr_dentry = temp;
+	}
+	return ret;
+}
+
 //删除目录,返回1表示成功,返回2表示目录不为空,需要确认
 int FileSystem::rd(string filename,bool force)
 {
@@ -680,7 +797,7 @@ int FileSystem::rd(string filename,bool force)
 	int ret = findDentry(dir_list, temp_dentry, filename[0]);//判断是否存在
 	if (ret == 0){
 		//不存在文件
-		return -1;
+		return 0;
 	}
 	else if (ret == 2){
 		//是文件类型
@@ -697,9 +814,24 @@ int FileSystem::rd(string filename,bool force)
 		}
 		else{
 			if (force){
-
+				//非空且强制删除
+				vector<dentry*> temp = temp_dentry->child_list;//中间缓存，因为删除操作会修改temp_dentry的内容
+				for (auto item : temp){
+					if (item->is_dir()){
+						//强制删除子目录
+						rd(item->getPathName(), force);
+					}
+					else{
+						//删除文件
+						del(item->getPathName());
+					}
+				}
+				dentry *p_dentry = temp_dentry->parent;
+				withdraw_node(temp_dentry->inode);//收回iNode节点
+				p_dentry->removeChild(temp_dentry);//移除内存内的项
+				SaveDentry(*(temp_dentry->parent));//保存父目录的信息修改
 				return 1;
-			}
+			} 
 			return 3;
 		}
 	}
@@ -717,7 +849,7 @@ int FileSystem::del(string filename){
 	int ret = findDentry(dir_list, temp_dentry, filename[0],FILE_TYPE);//判断是否存在
 	if (ret == 0){
 		//不存在文件
-		return -1;
+		return 0;
 	}
 	else if (ret == 2){
 		//是文件类型
@@ -735,7 +867,10 @@ int FileSystem::del(string filename){
 //读取文件
 int FileSystem::cat(string filename){
 	dentry *temp;
-	findDentryWithName(filename, temp, FILE_TYPE);
+	int ret = findDentryWithName(filename, temp, FILE_TYPE);
+	if (ret == 0||ret==1){
+		return ret;
+	}
 	readBlockIds(temp->inode, temp->block_list);//读取block
 	char *content = new char[s_block.blockSize];
 	memset(content, 0, s_block.blockSize);
@@ -760,12 +895,6 @@ int FileSystem::cat(string filename){
 	return 1;
 }
 
-//设定工作目录
-int FileSystem::setCurrDir(vector<string> list)
-{
-
-	return 1;
-}
 
 //通过名字寻找目录项,返回1表示找到文件夹，返回2表示找到文件，0表示未找到，type为1找文件夹，type为2找文件
 int FileSystem::findDentryWithName(string name, dentry *&p_dentry, int type)
@@ -808,14 +937,18 @@ int FileSystem::findDentry(vector<string> list,dentry *&p_dentry,char firstChar,
 						if (p_dentry->child_list.size()==0)
 							InitDentry(*p_dentry);//初始化
 						//若不是路径上的最后一个，则必须是文件类型
-						if (type == FOLDER_TYPE || item != list[list.size() - 1])
+						if (type == FOLDER_TYPE || item != list[list.size() - 1]){
 							ret = FOLDER_TYPE;//找的是文件夹
+							break;
+						}
 					}
 					else{
 						p_dentry = child_dentry;
 						//若是路径上的最后一个，则看是不是寻找的文件
-						if (type == FILE_TYPE && item == list[list.size() - 1])
+						if (type == FILE_TYPE && item == list[list.size() - 1]){
 							ret = FILE_TYPE;//找的是文件
+							break;
+						}
 					}
 				}
 			}

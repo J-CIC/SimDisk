@@ -16,6 +16,9 @@ public:
 	iNode root;//根节点
 	dentry root_dentry;//根目录
 	dentry *curr_dentry;//工作目录，即当前目录
+	int serve();//服务
+	int parseCmd(string cmd);//解析命令
+	void outputPrompt();
 	FileSystem();
 	~FileSystem();
 private:
@@ -36,7 +39,7 @@ private:
 	int rd(string filename, bool force=false);//删除文件夹
 	int del(string filename);//删除文件
 	int cat(string filename);//读取文件并显示
-	int setCurrDir(vector<string> list);//切换当前目录
+	int cd(string filename);//切换工作目录
 	//用名称寻找目录或文件，指针引用，因为可能要修改地址，type默认寻找文件夹
 	int findDentryWithName(string name, dentry *&p_dentry, int type = FOLDER_TYPE);
 	//寻找目录或文件，指针引用，因为可能要修改地址，type默认寻找文件夹

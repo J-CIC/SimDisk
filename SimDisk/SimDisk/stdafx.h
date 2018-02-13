@@ -10,9 +10,9 @@
 #include <stdio.h>
 #include <tchar.h>
 #include <string>
+#include <iostream>
 #include <fstream>
 #include <sstream>
-#include <iostream>
 #include <cmath>
 #include <vector>
 #include <time.h>

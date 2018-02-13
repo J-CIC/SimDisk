@@ -7,6 +7,7 @@ class dentry
 {
 public:
 	string fileName;
+	string pathName;
 	iNode inode;
 	file fileObj;//打开时对应的对象
 	vector<unsigned int> block_list;//iNode对应的内容block_list
@@ -19,6 +20,7 @@ public:
 	void removeChild(dentry *s);
 	void setSubDentry(vector<dentry *> list);//设置字目录
 	void showDentry();//显示目录
+	string getPathName();//获取路径名称
 	vector<dir> getDirList();//将dentry转为dir
 	dentry();
 	dentry(string fileName,iNode inode);
