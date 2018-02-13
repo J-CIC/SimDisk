@@ -1,22 +1,25 @@
 #include "stdafx.h"
 #include "toolkit.h"
 #include <algorithm>
-string num2bin(int n)
+string num2permission(int n)
 {
-	int a;
-	int count = 0;
-	string str;
-	while (n != 0){
-		a = n % 2;
-		n = n >> 1;
-		string temp = a ? "1" : "0";
-		str.append(temp);
-		if (++count % 4 == 0){
-			str.append(" ");
+	string ret = "----------";
+	unsigned short mask = 1;
+	unsigned short use_mask = mask << 14;
+	if (n&use_mask){
+		ret[0] = 'd';
+	}
+	char res[3] = { 'r', 'w', 'x' };
+	for (int i = 0; i < 3; i++){
+		for (int j = 0; j < 3; j++){
+			use_mask = mask << (i + j * 4);
+			int pos = 7 + i - j * 3;
+			if (use_mask&n){
+				ret[pos] = res[i];
+			}
 		}
 	}
-	reverse(str.begin(), str.end());
-	return str;
+	return ret;
 }
 
 void SplitString(const std::string& s, std::vector<std::string>& v, const std::string& c)

@@ -32,7 +32,6 @@ iNode::iNode(unsigned int no, unsigned long size,unsigned long block,vector<unsi
 void iNode::printInfo()
 {
 	cout << "i节点号: " << ino << endl;
-	cout << "文件模式: " << num2bin(i_mode) << endl;
 	cout << "文件大小，单位字节: " << i_size << endl;
 	cout << "文件创建时间: " << i_time << endl;
 	cout << "文件最后修改时间: " << i_mtime << endl;

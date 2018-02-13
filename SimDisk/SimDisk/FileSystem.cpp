@@ -40,7 +40,6 @@ FileSystem::FileSystem()
 }
 FileSystem::~FileSystem()
 {
-	string cmd;
 	fileDisk.close();
 }
 
