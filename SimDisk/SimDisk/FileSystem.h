@@ -40,6 +40,7 @@ private:
 	int del(string filename);//删除文件
 	int cat(string filename);//读取文件并显示
 	int cd(string filename);//切换工作目录
+	int ls(string filename="");//展示目录
 	//用名称寻找目录或文件，指针引用，因为可能要修改地址，type默认寻找文件夹
 	int findDentryWithName(string name, dentry *&p_dentry, int type = FOLDER_TYPE);
 	//寻找目录或文件，指针引用，因为可能要修改地址，type默认寻找文件夹

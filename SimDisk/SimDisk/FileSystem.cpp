@@ -74,19 +74,29 @@ int FileSystem::parseCmd(string cmd)
 	if (cmd == "newfile"){
 		if (cmd_list.size() == 1){
 			ret = newfile(cmd_list[0]);
+			if (ret == -1){
+				cout << "file exists !" << endl;
+			}
+			else if (ret == -2){
+				cout << "name length is not valid" << endl;
+			}
+			else if (ret == -3){
+				cout << "No enough iNode or blocks" << endl;
+			}
 		}
 		else{
 			cout << "newfile accept one parameter" << endl;
 		}
 	}
 	else if (cmd == "dir"){
-		dentry *temp;
 		if (cmd_list.size() == 1){
-			ret = findDentryWithName(cmd_list[0], temp);
-			temp->showDentry();
+			ret = ls(cmd_list[0]);
+			if (ret == 0 || ret == 2){
+				cout << "No such directory : " << cmd_list[0] << endl;
+			}
 		}
 		else if (cmd_list.size() == 0){
-			curr_dentry->showDentry();
+			ret = ls();
 		}
 		else{
 			cout << "dir accept less than one parameter"<<endl;
@@ -123,11 +133,14 @@ int FileSystem::parseCmd(string cmd)
 		else{
 			for (auto name : cmd_list){
 				ret = mkdir(name);
-				if (ret == 0){
-					cout << "file: " << name << " not found " << endl;
+				if (ret == -1){
+					cout << "folder exists !" << endl;
 				}
-				else if (ret == -1){
-					cout << "file: " << name << "is not file" << endl;
+				else if (ret == -2){
+					cout << "name length is not valid" << endl;
+				}
+				else if (ret == -3){
+					cout << "No enough iNode or blocks" << endl;
 				}
 			}
 		}
@@ -164,6 +177,33 @@ int FileSystem::parseCmd(string cmd)
 				cout << "No such file: " << cmd_list[0] << endl;
 			}
 		}
+	}
+	else if (cmd == "info"){
+		s_block.printInfo();
+	}
+	else if (cmd == "copy"){
+		if (cmd_list.size() == 2){
+			ret = copy(cmd_list[0], cmd_list[1]);
+			if (ret == 0){
+				cout << "No such file: " << cmd_list[0] << endl;
+			}
+			else if (ret == -1){
+				cout << "file exists !" << endl;
+			}
+			else if (ret == -2){
+				cout << "name length is not valid" << endl;
+			}
+			else if (ret == -3){
+				cout << "No enough iNode or blocks" << endl;
+			}
+		}
+		else{
+			cout << "copy require two parameters"<<endl;
+		}
+	}
+	else{
+		if (cmd != "")
+			cout << "unknown command" << endl;
 	}
 	return ret;
 }
@@ -637,7 +677,7 @@ int FileSystem::copy(string from, string to){
 				return -2;//超过最大文件大小
 			}
 			int ret = newfile(to,size);
-			if (ret == -1){
+			if (ret <0){
 				file_from.close();
 				return ret;//申请失败
 			}
@@ -713,7 +753,7 @@ int FileSystem::newfile(string filename,unsigned long size)
 	//获取创建的文件名字
 	file_name = dir_list[dir_list.size() - 1];
 	if (file_name.length() <= 0){
-		return -1;//文件名长度不合法
+		return -2;//文件名长度不合法
 	}
 	int ret = findDentry(dir_list, temp_dentry, filename[0],FILE_TYPE);//判断是否存在
 	if (ret == 2){
@@ -729,7 +769,7 @@ int FileSystem::newfile(string filename,unsigned long size)
 	iNode file_node;
 	ret = alloc_inode(size, file_node);
 	if (ret == -1){
-		return ret;
+		return -3;
 	}
 	dir s_dir(file_name, file_node.ino);//生成file
 	dentry *created_dentry = new dentry(s_dir.dir_name, file_node);//生成dentry项
@@ -749,7 +789,7 @@ int FileSystem::mkdir(string filename)
 	//获取创建的文件夹名字
 	folder_name = dir_list[dir_list.size() - 1];
 	if (folder_name.length() <= 0){
-		return -1;//文件名长度不合法
+		return -2;//文件名长度不合法
 	}
 	int ret = findDentry(dir_list, temp_dentry, filename[0]);//判断是否存在
 	if (ret == 1){
@@ -764,8 +804,8 @@ int FileSystem::mkdir(string filename)
 	}
 	iNode dir_node;
 	ret = alloc_inode(0, dir_node, true);
-	if (ret == -1){
-		return ret;
+	if (ret == -1){//申请失败
+		return -3;
 	}
 	dir s_dir(folder_name, dir_node.ino);//生成dir
 	dentry *created_dentry = new dentry(s_dir.dir_name, dir_node);//生成dentry项
@@ -891,6 +931,22 @@ int FileSystem::cat(string filename){
 		int real_size = fileDisk.gcount();
 		string t(content, content + read_size);
 		cout << t;
+	}
+	return FILE_TYPE;
+}
+
+//展示目录
+int FileSystem::ls(string filename){
+	dentry *temp;
+	if (filename == ""){
+		curr_dentry->showDentry();
+	}
+	else{
+		int ret = findDentryWithName(filename, temp);
+		if (ret == 0 || ret == 2){
+			return ret;
+		}
+		temp->showDentry();
 	}
 	return 1;
 }
