@@ -49,11 +49,16 @@ void dentry::showDentry()
 	for (auto item : child_list)
 	{
 		if (item->is_dir()){
-			cout << num2permission(item->inode.i_mode) << "\t" << item->fileName << "\t" << "\t" << "\n";
+			cout << num2permission(item->inode.i_mode) << "\t";
+			cout << item->child_list.size()<<"\t";//ÎÄ¼þÊý
+			cout << item->fileName <<endl;
 
 		}
 		else{
-			cout << num2permission(item->inode.i_mode) << "\t" << item->fileName << "\t" << item->inode.i_size << "\n";
+			cout << num2permission(item->inode.i_mode) << "\t";
+			cout << 1 << "\t";
+			cout << item->inode.i_size << "\n";
+			cout << item->fileName << endl;
 		}
 	}
 }
