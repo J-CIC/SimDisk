@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "dentry.h"
 #include "toolkit.h"
+#include <algorithm>
 
 dentry::dentry()
 {
@@ -42,25 +43,33 @@ bool dentry::is_dir(){
 	return inode.i_mode&mask;
 }
 
+void dentry::showItself(const vector<string> &users,string coverName){
+	int subFile = 1;
+	string showName = this->fileName;
+	if (coverName != ""){
+		showName = coverName;
+	}
+	if (this->is_dir()){
+		subFile = this->child_list.size();
+	}
+	cout << num2permission(inode.i_mode) << "\t";
+	cout << subFile << "\t";
+	cout << users[inode.i_uid] << "\t";
+	cout << users[inode.i_uid] << "\t";
+	cout << inode.i_size << "\t";
+	cout << inode.i_time << "\t";
+	cout << showName;
+	cout << endl;
+}
+
 void dentry::showDentry(vector<string> users)
 {
-	cout << "." << "\n";
-	cout << ".." << "\n";
+	sort(this->child_list.begin(), this->child_list.end(), dentryComp);
+	showItself(users,".");//输出当前目录
+	this->parent->showItself(users,"..");//输出父目录
 	for (auto item : child_list)
 	{
-		if (item->is_dir()){
-			cout << num2permission(item->inode.i_mode) << "\t";
-			cout << item->child_list.size()<<"\t";//文件数
-			cout << item->inode.i_size << "\n"; //大小
-			cout << item->fileName << endl;
-
-		}
-		else{
-			cout << num2permission(item->inode.i_mode) << "\t";
-			cout << 1 << "\t";
-			cout << item->inode.i_size << "\n";
-			cout << item->fileName << endl;
-		}
+		item->showItself(users);
 	}
 }
 

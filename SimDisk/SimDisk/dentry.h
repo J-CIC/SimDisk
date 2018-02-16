@@ -20,6 +20,7 @@ public:
 	void removeChild(dentry *s);
 	void setSubDentry(vector<dentry *> list);//设置字目录
 	void showDentry(vector<string> users);//显示目录
+	void showItself(const vector<string> &users, string coverName="");//展示自己的dentry信息
 	string getPathName();//获取路径名称
 	vector<dir> getDirList();//将dentry转为dir
 	dentry();

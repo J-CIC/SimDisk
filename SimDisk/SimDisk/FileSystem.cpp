@@ -553,18 +553,13 @@ int FileSystem::init_root_dentry()
 	root_dentry.fileName = "/";
 	root_dentry.setParent(root_dentry);
 	curr_dentry = &root_dentry;
-	getSubDentry(root_dentry);
-	return 1;
-}
-
-//读取子目录
-int FileSystem::getSubDentry(dentry& p_dir)
-{
 	vector<unsigned int> blocks_list;
-	iNode p_node = p_dir.inode;
+	iNode p_node = root_dentry.inode;
 	readBlockIds(p_node, blocks_list);//读取内容块列表
-	InitDentry(p_dir);
-	file p_file = file(p_node,blocks_list);
+	InitDentry(root_dentry);
+	for (auto item : root_dentry.child_list){
+		InitDentry(*item);
+	}
 	return 1;
 }
 
@@ -997,8 +992,12 @@ int FileSystem::findDentry(vector<string> list,dentry *&p_dentry,char firstChar,
 					//如果名字对上了，还要判断文件类型
 					if (child_dentry->is_dir()){
 						p_dentry = child_dentry;
-						if (p_dentry->child_list.size()==0)
-							InitDentry(*p_dentry);//初始化
+						if (p_dentry->child_list.size() == 0){
+							InitDentry(*p_dentry);//初始化自身及子目录
+						}
+						for (auto item : p_dentry->child_list){
+							InitDentry(*item);
+						}
 						//若不是路径上的最后一个，则必须是文件类型
 						if (type == FOLDER_TYPE || item != list[list.size() - 1]){
 							ret = FOLDER_TYPE;//找的是文件夹
@@ -1025,26 +1024,28 @@ int FileSystem::findDentry(vector<string> list,dentry *&p_dentry,char firstChar,
 
 //初始化dentry
 int FileSystem::InitDentry(dentry & p_dentry){
-	readBlockIds(p_dentry.inode, p_dentry.block_list);//保存block_list
-	int dir_num_per_block = s_block.blockSize / sizeof(dir);//每一个块能存放的dir数目
-	int count = 0,max_dir = floor(p_dentry.inode.i_size / sizeof(dir));
-	dir t_dir;
-	for (auto b_idx : p_dentry.block_list){
-		if (count == max_dir){
-			break;
-		}
-		int base_pos = (b_idx - 1)*s_block.blockSize;//基础偏移地址
-		for (int i = 0; i < dir_num_per_block&&count<max_dir; i++){
-			seekAndGet<dir>(base_pos + i*sizeof(dir), t_dir);
-			if (t_dir.ino>0 && t_dir.ino <= s_block.inode_num){
-				dentry* t_dentry = new dentry();
-				read_inode(t_dir.ino, t_dentry->inode);//读取iNode
-				t_dentry->fileName = t_dir.dir_name;
-				t_dentry->setParent(p_dentry);
-				p_dentry.addChild(t_dentry);
-				count++;
-				if (count == max_dir){
-					break;
+	if (p_dentry.child_list.size() == 0){
+		readBlockIds(p_dentry.inode, p_dentry.block_list);//保存block_list
+		int dir_num_per_block = s_block.blockSize / sizeof(dir);//每一个块能存放的dir数目
+		int count = 0, max_dir = floor(p_dentry.inode.i_size / sizeof(dir));
+		dir t_dir;
+		for (auto b_idx : p_dentry.block_list){
+			if (count == max_dir){
+				break;
+			}
+			int base_pos = (b_idx - 1)*s_block.blockSize;//基础偏移地址
+			for (int i = 0; i < dir_num_per_block&&count<max_dir; i++){
+				seekAndGet<dir>(base_pos + i*sizeof(dir), t_dir);
+				if (t_dir.ino>0 && t_dir.ino <= s_block.inode_num){
+					dentry* t_dentry = new dentry();
+					read_inode(t_dir.ino, t_dentry->inode);//读取iNode
+					t_dentry->fileName = t_dir.dir_name;
+					t_dentry->setParent(p_dentry);
+					p_dentry.addChild(t_dentry);
+					count++;
+					if (count == max_dir){
+						break;
+					}
 				}
 			}
 		}

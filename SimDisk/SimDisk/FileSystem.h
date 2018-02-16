@@ -31,7 +31,6 @@ private:
 	int withdraw_node(iNode node);//删除文件后的收回文件对应的节点和块
 	int read_inode(int ino, iNode &node);//读取iNode节点信息
 	int write_inode(iNode &node);//更新iNode信息
-	int getSubDentry(dentry& p_dir);//获取子目录
 	int clearBlockContent(vector<unsigned int> list);//清空块内容
 	int copy(string from, string to);
 	int newfile(string name, unsigned long size=0);//创建文件

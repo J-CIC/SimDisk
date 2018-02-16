@@ -37,3 +37,15 @@ void SplitString(const std::string& s, std::vector<std::string>& v, const std::s
 	if (pos1 != s.length())
 		v.push_back(s.substr(pos1));
 }
+
+//dentry项比较大小
+bool dentryComp(const dentry *a, const dentry *b)
+{
+	return a->fileName < b->fileName;
+}
+
+//输出dentry的信息
+void showOneDentry(int access_mode, string username, string groupname, unsigned long size,
+	int create_time, string name, int subFileNum = 1){
+	
+}
