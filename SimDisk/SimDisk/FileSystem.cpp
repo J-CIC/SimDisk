@@ -938,18 +938,26 @@ int FileSystem::cat(string filename){
 int FileSystem::ls(string filename){
 	dentry *temp;
 	if (filename == ""){
-		curr_dentry->showDentry();
+		curr_dentry->showDentry(this->getUsers());
 	}
 	else{
 		int ret = findDentryWithName(filename, temp);
 		if (ret == 0 || ret == 2){
 			return ret;
 		}
-		temp->showDentry();
+		temp->showDentry(this->getUsers());
 	}
 	return 1;
 }
 
+//获取用户列表
+vector<string> FileSystem::getUsers()
+{
+	vector<string> users;
+	users.push_back("");//第0位填充空
+	users.push_back("root");
+	return users;
+}
 
 //通过名字寻找目录项,返回1表示找到文件夹，返回2表示找到文件，0表示未找到，type为1找文件夹，type为2找文件
 int FileSystem::findDentryWithName(string name, dentry *&p_dentry, int type)

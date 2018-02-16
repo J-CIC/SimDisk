@@ -42,7 +42,7 @@ bool dentry::is_dir(){
 	return inode.i_mode&mask;
 }
 
-void dentry::showDentry()
+void dentry::showDentry(vector<string> users)
 {
 	cout << "." << "\n";
 	cout << ".." << "\n";
@@ -51,7 +51,8 @@ void dentry::showDentry()
 		if (item->is_dir()){
 			cout << num2permission(item->inode.i_mode) << "\t";
 			cout << item->child_list.size()<<"\t";//文件数
-			cout << item->fileName <<endl;
+			cout << item->inode.i_size << "\n"; //大小
+			cout << item->fileName << endl;
 
 		}
 		else{
