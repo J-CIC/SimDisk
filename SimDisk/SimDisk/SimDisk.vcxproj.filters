@@ -42,7 +42,7 @@
     <ClInclude Include="dentry.h">
       <Filter>头文件</Filter>
     </ClInclude>
-    <ClInclude Include="file.h">
+    <ClInclude Include="User.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -71,7 +71,7 @@
     <ClCompile Include="dentry.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="file.cpp">
+    <ClCompile Include="User.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

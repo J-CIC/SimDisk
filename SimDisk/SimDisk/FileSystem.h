@@ -3,7 +3,7 @@
 #include "superBlock.h"
 #include "iNode.h"
 #include "dentry.h"
-#include "file.h"
+#include "User.h"
 #include "toolkit.h"
 
 class FileSystem
@@ -12,6 +12,8 @@ public:
 	const static int FOLDER_TYPE = 1;
 	const static int FILE_TYPE = 2;
 	static const string fileName;//磁盘所在的文件名
+	User currUser;//当前用户名字
+	vector<User> userLists;//用户列表
 	superBlock s_block;//超级块
 	iNode root;//根节点
 	dentry root_dentry;//根目录
@@ -24,6 +26,8 @@ public:
 private:
 	fstream fileDisk;//磁盘的文件流
 	int init_root_dentry();//初始化根目录
+	int init_user();//初始化用户
+	int save_user();//保存用户
 	int alloc_inode(unsigned long size,iNode &node,bool is_dentry = false);//申请iNode节点,size为字节
 	int alloc_blocks(int num, vector<unsigned int> &list);
 	int destroy_inode(int id);//销毁iNode节点

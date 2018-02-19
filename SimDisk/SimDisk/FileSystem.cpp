@@ -35,12 +35,79 @@ FileSystem::FileSystem()
 	}
 	seekAndGet<superBlock>(0, s_block);
 	seekAndGet<iNode>(s_block.inode_table, root);
-	init_root_dentry();
-	
+	init_root_dentry();//初始化目录
+	init_user();//初始化用户
+	cout << sizeof(User);
 }
 FileSystem::~FileSystem()
 {
 	fileDisk.close();
+}
+
+
+//初始化用户
+int FileSystem::init_user()
+{
+	//初始化root用户
+	dentry * temp;
+	if (findDentryWithName("/etc/shadow", temp, 2) != 2){
+		//shadow文件不存在
+		mkdir("/etc");//something wrong here
+		int id = newfile("/etc/shadow",10240);
+		User rootUser = User("root", "root", 0);//默认账户
+		userLists.push_back(rootUser);//加入用户列表
+		save_user();
+	}
+	findDentryWithName("/etc/shadow", temp, 2);
+	vector<unsigned int> block_lists;//内容块
+	readBlockIds(temp->inode, block_lists);//读取内容块
+	int cnt_per_block = s_block.blockSize / sizeof(User);
+	int block_idx = 0, cnt = 0;
+	int user_count = temp->inode.i_size / sizeof(User);
+	for (int i = 0; i < user_count;i++){
+		if (cnt >= cnt_per_block){
+			cnt = 0;
+			block_idx += 1;
+		}
+		unsigned long base_pos = (block_lists[block_idx] - 1) * s_block.blockSize;
+		User *user = new User();
+		seekAndGet<User>(base_pos + cnt*sizeof(User), *user);
+		userLists.push_back(*user);//推入列表中
+	}
+	cout << userLists.size() << endl;
+	cout << userLists.size() << endl;
+	cout << userLists.size() << endl;
+	cout << userLists.size() << endl;
+	cout << userLists.size() << endl;
+	cout << userLists[0].username << endl;
+	cout << userLists[1].username << endl;
+	return 1;
+}
+
+//保存用户
+int FileSystem::save_user()
+{
+	dentry * temp;
+	if (findDentryWithName("/etc/shadow", temp, 2) == 2){
+		vector<unsigned int> block_lists;//内容块
+		readBlockIds(temp->inode, block_lists);//读取内容块
+		int cnt_per_block = s_block.blockSize / sizeof(User);
+		int block_idx = 0,cnt = 0;
+		for (auto user : userLists){
+			if (cnt >= cnt_per_block){
+				cnt = 0;
+				block_idx += 1;
+			}
+			unsigned long base_pos = (block_lists[block_idx]-1) * s_block.blockSize;
+			seekAndSave<User>(base_pos + cnt*sizeof(User), user);
+		}
+		temp->inode.i_size = userLists.size()*sizeof(User);
+		write_inode(temp->inode);//保存iNode
+	}
+	else{
+		return -1;
+	}
+	return 1;
 }
 
 //服务
@@ -970,12 +1037,12 @@ int FileSystem::findDentry(vector<string> list,dentry *&p_dentry,char firstChar,
 {
 	int ret = 0;
 	p_dentry = curr_dentry;
-	if (list.size() == 0){
-		return 1;//直接当前目录下创建
-	}
 	if (firstChar == '/'){
 		p_dentry = &root_dentry;//从根目录开始
 		list.erase(list.begin());//若第一个字符是/则split后第一位为空
+	}
+	if (list.size() == 0){
+		return 1;//直接当前目录下创建
 	}
 	for (auto item : list){
 		ret = 0;
