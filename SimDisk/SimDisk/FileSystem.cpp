@@ -155,7 +155,7 @@ int FileSystem::parseCmd(string cmd)
 					//非空目录
 					cout << "the directory is not empty, force delete? " << "Y/N :" << endl;
 					string choice;
-					cin >> choice;
+					getline(cin, choice);
 					if (choice == "Y"||choice=="y"){
 						ret = rd(name, true);//强制删除
 					}
