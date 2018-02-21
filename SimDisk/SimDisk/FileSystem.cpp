@@ -37,7 +37,6 @@ FileSystem::FileSystem()
 	seekAndGet<iNode>(s_block.inode_table, root);
 	init_root_dentry();//初始化目录
 	init_user();//初始化用户
-	cout << sizeof(User);
 }
 FileSystem::~FileSystem()
 {
@@ -74,13 +73,6 @@ int FileSystem::init_user()
 		seekAndGet<User>(base_pos + cnt*sizeof(User), *user);
 		userLists.push_back(*user);//推入列表中
 	}
-	cout << userLists.size() << endl;
-	cout << userLists.size() << endl;
-	cout << userLists.size() << endl;
-	cout << userLists.size() << endl;
-	cout << userLists.size() << endl;
-	cout << userLists[0].username << endl;
-	cout << userLists[1].username << endl;
 	return 1;
 }
 
@@ -102,6 +94,7 @@ int FileSystem::save_user()
 			seekAndSave<User>(base_pos + cnt*sizeof(User), user);
 		}
 		temp->inode.i_size = userLists.size()*sizeof(User);
+		temp->inode.i_mode = 7 << 8;
 		write_inode(temp->inode);//保存iNode
 	}
 	else{
@@ -348,12 +341,14 @@ int FileSystem::alloc_inode(unsigned long size, iNode &node,bool is_dentry)
 	vector<unsigned int> block_list;
 	alloc_blocks(blocks_needed, block_list);//申请磁盘块
 	node = iNode(inode_no,size,blocks_needed,block_list);
-	node.i_mode = 1911;//777
+	node.i_mode = (7<<8)+(7<<4)+7;//777
 	if (is_dentry){
 		unsigned short mode = 1;
 		mode = mode << 14;
-		node.i_mode = mode+1911;//设定为文件夹
+		node.i_mode = mode + (7 << 8) + (7 << 4) + 7;//设定为文件夹
 	}
+	node.i_uid = currUser.u_id;
+	node.i_gid = currUser.u_id;
 	write_inode(node);
 	//更新相应的超级块信息
 	s_block.inode_remain--;

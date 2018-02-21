@@ -18,8 +18,6 @@ iNode::iNode(unsigned int no, unsigned long size,unsigned long block,vector<unsi
 	i_mtime = i_time;
 	i_count = 1;
 	i_nlink = 1;
-	i_uid = 1;
-	i_gid = 1;
 	int index = 0;
 	for (auto b_no : zone){
 		i_zone[index++] = b_no;
