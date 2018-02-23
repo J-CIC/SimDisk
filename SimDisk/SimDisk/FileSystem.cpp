@@ -120,6 +120,7 @@ int FileSystem::parseCmd(string cmd)
 	int ret = 0;
 	vector<string>cmd_list;
 	stringstream s(cmd);
+	string total = cmd;
 	s >> cmd;
 	string temp;
 	while (s >> temp){
@@ -254,6 +255,9 @@ int FileSystem::parseCmd(string cmd)
 		else{
 			cout << "copy require two parameters"<<endl;
 		}
+	}
+	else if (cmd == "cls"){
+		system("cls");
 	}
 	else if (cmd == "exit"){
 		exit(0);//退出
@@ -752,7 +756,42 @@ int FileSystem::copy(string from, string to){
 			file_from.close();
 		}
 	}
-	else{
+	else if (to.compare(0, host_cmd.size(), host_cmd) == 0){
+		//从模拟系统中复制到本机
+		to = to.substr(host_cmd.size());
+		fstream file_to(to, ios::binary | ios::out);
+		dentry *fromDentry;
+		int ret = findDentryWithName(from, fromDentry, FILE_TYPE);
+		if (ret == 0){
+			//未找到文件
+			return 0;
+		}
+		//获取读取的内容
+		vector<unsigned int> read_list;
+		readBlockIds(fromDentry->inode, read_list);
+		//初始化内容块
+		char * content = new char[s_block.blockSize];
+		memset(content, 0, s_block.blockSize);
+		//获得文件大小
+		unsigned long size = fromDentry->inode.i_size;
+		int read_size = 0;
+		for (int i = 0; i < read_list.size(); i++){
+			//计算一次读取的大小
+			if (size > s_block.blockSize){
+				read_size = s_block.blockSize;
+				size -= s_block.blockSize;
+			}
+			else{
+				read_size = size;
+				size = 0;
+			}
+			unsigned long read_pos = (read_list[i] - 1)*s_block.blockSize;
+			fileDisk.seekg(read_pos, ios::beg);
+			fileDisk.read((char *)content, read_size);
+			file_to.write((char *)content, read_size);
+		}
+		file_to.close();
+	}else{
 		//从模拟系统中复制到模拟系统
 		dentry *fromDentry, *toDentry;
 		int ret = findDentryWithName(from, fromDentry, FILE_TYPE);
