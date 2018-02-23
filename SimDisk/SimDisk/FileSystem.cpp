@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "FileSystem.h"
-const string FileSystem::fileName = "disk.txt";
+const string FileSystem::fileName = "disk.bin";
 
 
 FileSystem::FileSystem()
@@ -613,7 +613,7 @@ int FileSystem::init_root_dentry()
 	root_dentry = dentry();
 	root_dentry.inode = root;
 	root_dentry.fileName = "/";
-	root_dentry.setParent(root_dentry);
+	root_dentry.setParent(&root_dentry);
 	curr_dentry = &root_dentry;
 	vector<unsigned int> blocks_list;
 	iNode p_node = root_dentry.inode;
@@ -829,7 +829,7 @@ int FileSystem::newfile(string filename,unsigned long size)
 	}
 	dir s_dir(file_name, file_node.ino);//生成file
 	dentry *created_dentry = new dentry(s_dir.dir_name, file_node);//生成dentry项
-	created_dentry->setParent(*temp_dentry);
+	created_dentry->setParent(temp_dentry);
 	temp_dentry->addChild(created_dentry);//加入父目录的子项
 	SaveDentry(*temp_dentry);
 	return file_node.ino;
@@ -865,7 +865,7 @@ int FileSystem::mkdir(string filename)
 	}
 	dir s_dir(folder_name, dir_node.ino);//生成dir
 	dentry *created_dentry = new dentry(s_dir.dir_name, dir_node);//生成dentry项
-	created_dentry->setParent(*temp_dentry);
+	created_dentry->setParent(temp_dentry);
 	temp_dentry->addChild(created_dentry);//加入父目录的子项
 	SaveDentry(*temp_dentry);
 	return 1;
@@ -1102,7 +1102,7 @@ int FileSystem::InitDentry(dentry & p_dentry){
 					dentry* t_dentry = new dentry();
 					read_inode(t_dir.ino, t_dentry->inode);//读取iNode
 					t_dentry->fileName = t_dir.dir_name;
-					t_dentry->setParent(p_dentry);
+					t_dentry->setParent(&p_dentry);
 					p_dentry.addChild(t_dentry);
 					count++;
 					if (count == max_dir){

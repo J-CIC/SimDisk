@@ -13,7 +13,7 @@ public:
 	vector<dentry*> sibling_list;
 	dentry * parent;
 	bool is_dir();//判断是否是目录
-	void setParent(dentry &);
+	void setParent(dentry *);
 	void addChild(dentry *);
 	void removeChild(dentry *s);
 	void setSubDentry(vector<dentry *> list);//设置字目录

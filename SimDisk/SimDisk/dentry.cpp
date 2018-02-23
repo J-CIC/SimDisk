@@ -83,14 +83,14 @@ vector<dir> dentry::getDirList(){
 	return ret_list;
 }
 
-void dentry::setParent(dentry &p)
+void dentry::setParent(dentry *p)
 {
-	this->parent = &p;
+	this->parent = p;
 	if (this->fileName == "/"){
 		this->pathName = "";
 	}
 	else{
-		this->pathName = p.pathName + "/" + this->fileName;
+		this->pathName = p->pathName + "/" + this->fileName;
 	}
 }
 

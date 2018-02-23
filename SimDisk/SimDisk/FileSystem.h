@@ -20,7 +20,7 @@ public:
 	dentry *curr_dentry;//工作目录，即当前目录
 	int serve();//服务
 	int parseCmd(string cmd);//解析命令
-	void outputPrompt();
+	void outputPrompt();//解析命令输出提示符
 	FileSystem();
 	~FileSystem();
 private:
