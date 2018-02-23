@@ -944,6 +944,7 @@ int FileSystem::rd(string filename,bool force)
 			withdraw_node(temp_dentry->inode);//收回iNode节点
 			p_dentry->removeChild(temp_dentry);//移除内存内的项
 			SaveDentry(*(temp_dentry->parent));//保存父目录的信息修改
+			delete temp_dentry;
 		}
 		else{
 			if (force){
@@ -989,6 +990,7 @@ int FileSystem::del(string filename){
 		withdraw_node(temp_dentry->inode);//收回iNode节点
 		temp_dentry->parent->removeChild(temp_dentry);//移除内存内的项
 		SaveDentry(*temp_dentry->parent);//保存父目录的信息修改
+		delete temp_dentry;
 	}
 	else if (ret == 1){
 		//文件夹格式
