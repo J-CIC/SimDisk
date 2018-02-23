@@ -108,12 +108,7 @@ int FileSystem::serve(){
 	string cmd;
 	outputPrompt();
 	while (getline(cin, cmd)){
-		if (cmd == "exit"){
-			break;
-		}
-		else{
-			parseCmd(cmd);
-		}
+		parseCmd(cmd);
 		outputPrompt();
 	}
 	return 1;
@@ -259,6 +254,9 @@ int FileSystem::parseCmd(string cmd)
 		else{
 			cout << "copy require two parameters"<<endl;
 		}
+	}
+	else if (cmd == "exit"){
+		exit(0);//ÍË³ö
 	}
 	else{
 		if (cmd != "")

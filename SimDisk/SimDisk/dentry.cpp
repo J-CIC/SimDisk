@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "dentry.h"
 #include "toolkit.h"
+#include "iomanip"
 #include <algorithm>
 
 dentry::dentry()
@@ -52,10 +53,10 @@ void dentry::showItself(const vector<string> &users,string coverName){
 	if (this->is_dir()){
 		subFile = this->child_list.size();
 	}
-	cout << num2permission(inode.i_mode) << "\t";
-	cout << subFile << "\t";
-	cout << users[inode.i_uid] << "\t";
-	cout << users[inode.i_uid] << "\t";
+	cout << num2permission(inode.i_mode) << " ";
+	cout << subFile << " ";
+	cout << users[inode.i_uid] << " ";
+	cout << users[inode.i_uid] << " ";
 	cout << inode.i_size << "\t";
 	cout << inode.i_time << "\t";
 	cout << showName;
