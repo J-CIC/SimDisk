@@ -58,7 +58,7 @@ void dentry::showItself(const vector<string> &users,string coverName){
 	cout << users[inode.i_uid] << " ";
 	cout << users[inode.i_uid] << " ";
 	cout << inode.i_size << "\t";
-	cout << inode.i_time << "\t";
+	cout << int_time_2_string(inode.i_time) << "\t";
 	cout << showName;
 	cout << endl;
 }

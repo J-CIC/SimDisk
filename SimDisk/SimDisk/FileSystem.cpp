@@ -1050,8 +1050,9 @@ int FileSystem::ls(string filename){
 vector<string> FileSystem::getUsers()
 {
 	vector<string> users;
-	users.push_back("");//µÚ0Î»Ìî³ä¿Õ
-	users.push_back("root");
+	for (auto user : userLists){
+		users.push_back(user.username);
+	}
 	return users;
 }
 

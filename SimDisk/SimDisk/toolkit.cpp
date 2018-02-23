@@ -44,8 +44,14 @@ bool dentryComp(const dentry *a, const dentry *b)
 	return a->fileName < b->fileName;
 }
 
-//输出dentry的信息
-void showOneDentry(int access_mode, string username, string groupname, unsigned long size,
-	int create_time, string name, int subFileNum = 1){
-	
+//时间戳转化
+string int_time_2_string(int int_time)
+{
+	struct tm t;
+	char s[100];
+	time_t time_temp = (time_t)int_time;
+	localtime_s(&t, &time_temp);
+	strftime(s, sizeof(s), "%Y-%m-%d %H:%M:%S", &t);
+	string ret(s);
+	return ret;
 }
