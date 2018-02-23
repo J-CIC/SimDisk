@@ -25,7 +25,7 @@ FileSystem::FileSystem()
 		for (int i = 0; i < ceil(sp.block_num / (8 * 1024)); i++){
 			fileDisk.write((char *)map, sp.blockSize);
 		}
-		fileDisk.seekg(1000*1024, ios::beg);//偏移磁盘大小
+		fileDisk.seekg(diskSize, ios::beg);//偏移磁盘大小
 		fileDisk.write("1",1);//写入内容使得文件达到目标大小
 		fileDisk.close();
 		fileDisk.open(fileName, ios::binary | ios::in | ios::out);
@@ -51,7 +51,7 @@ int FileSystem::init_user()
 	dentry * temp;
 	if (findDentryWithName("/etc/shadow", temp, 2) != 2){
 		//shadow文件不存在
-		mkdir("/etc");//something wrong here
+		mkdir("/etc");
 		int id = newfile("/etc/shadow",10240);
 		User rootUser = User("root", "root", 0);//默认账户
 		userLists.push_back(rootUser);//加入用户列表
@@ -80,26 +80,25 @@ int FileSystem::init_user()
 int FileSystem::save_user()
 {
 	dentry * temp;
-	if (findDentryWithName("/etc/shadow", temp, 2) == 2){
-		vector<unsigned int> block_lists;//内容块
-		readBlockIds(temp->inode, block_lists);//读取内容块
-		int cnt_per_block = s_block.blockSize / sizeof(User);
-		int block_idx = 0,cnt = 0;
-		for (auto user : userLists){
-			if (cnt >= cnt_per_block){
-				cnt = 0;
-				block_idx += 1;
-			}
-			unsigned long base_pos = (block_lists[block_idx]-1) * s_block.blockSize;
-			seekAndSave<User>(base_pos + cnt*sizeof(User), user);
+	if (findDentryWithName("/etc/shadow", temp, 2) != 2){
+		mkdir("/etc");
+		int id = newfile("/etc/shadow", 10240);
+	}
+	vector<unsigned int> block_lists;//内容块
+	readBlockIds(temp->inode, block_lists);//读取内容块
+	int cnt_per_block = s_block.blockSize / sizeof(User);
+	int block_idx = 0, cnt = 0;
+	for (auto user : userLists){
+		if (cnt >= cnt_per_block){
+			cnt = 0;
+			block_idx += 1;
 		}
-		temp->inode.i_size = userLists.size()*sizeof(User);
-		temp->inode.i_mode = 7 << 8;
-		write_inode(temp->inode);//保存iNode
+		unsigned long base_pos = (block_lists[block_idx] - 1) * s_block.blockSize;
+		seekAndSave<User>(base_pos + cnt*sizeof(User), user);
 	}
-	else{
-		return -1;
-	}
+	temp->inode.i_size = userLists.size()*sizeof(User);
+	temp->inode.i_mode = 7 << 8;
+	write_inode(temp->inode);//保存iNode
 	return 1;
 }
 
@@ -181,7 +180,7 @@ int FileSystem::parseCmd(string cmd)
 			}
 		}
 	}
-	else if (cmd == "mkdir"){
+	else if (cmd == "md"){
 		if (cmd_list.size() == 0){
 			cout << "mkdir accept at least one parameter" << endl;
 		}

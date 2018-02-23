@@ -10,12 +10,11 @@ public:
 	iNode inode;
 	vector<unsigned int> block_list;//iNode对应的内容block_list
 	vector<dentry*> child_list;
-	vector<dentry*> sibling_list;
 	dentry * parent;
 	bool is_dir();//判断是否是目录
-	void setParent(dentry *);
-	void addChild(dentry *);
-	void removeChild(dentry *s);
+	void setParent(dentry *);//设置父亲节点
+	void addChild(dentry *);//添加子节点
+	void removeChild(dentry *s);//删除子节点
 	void setSubDentry(vector<dentry *> list);//设置字目录
 	void showDentry(vector<string> users);//显示目录
 	void showItself(const vector<string> &users, string coverName="");//展示自己的dentry信息
