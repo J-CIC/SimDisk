@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.21005.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "shell", "shell\shell.vcxproj", "{0E6F6E04-2A8D-4027-B9E8-717C7B536B02}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SimDisk", "..\SimDisk\SimDisk\SimDisk.vcxproj", "{FD9E2CD6-D37E-483A-B40F-A19ADA9B026F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		Release|Win32 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0E6F6E04-2A8D-4027-B9E8-717C7B536B02}.Debug|Win32.ActiveCfg = Debug|Win32
+		{0E6F6E04-2A8D-4027-B9E8-717C7B536B02}.Debug|Win32.Build.0 = Debug|Win32
+		{0E6F6E04-2A8D-4027-B9E8-717C7B536B02}.Release|Win32.ActiveCfg = Release|Win32
+		{0E6F6E04-2A8D-4027-B9E8-717C7B536B02}.Release|Win32.Build.0 = Release|Win32
+		{FD9E2CD6-D37E-483A-B40F-A19ADA9B026F}.Debug|Win32.ActiveCfg = Debug|Win32
+		{FD9E2CD6-D37E-483A-B40F-A19ADA9B026F}.Debug|Win32.Build.0 = Debug|Win32
+		{FD9E2CD6-D37E-483A-B40F-A19ADA9B026F}.Release|Win32.ActiveCfg = Release|Win32
+		{FD9E2CD6-D37E-483A-B40F-A19ADA9B026F}.Release|Win32.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
