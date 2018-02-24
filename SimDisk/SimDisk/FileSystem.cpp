@@ -1,7 +1,8 @@
 #include "stdafx.h"
 #include "FileSystem.h"
+#include <Windows.h>
 const string FileSystem::fileName = "disk.bin";
-
+#define INPUT_SIZE 4096
 
 FileSystem::FileSystem()
 {
@@ -104,12 +105,54 @@ int FileSystem::save_user()
 
 //服务
 int FileSystem::serve(){
-	string cmd;
-	outputPrompt();
-	while (getline(cin, cmd)){
-		parseCmd(cmd);
-		outputPrompt();
+	HANDLE m_command;           //客户端通知服务器
+	HANDLE m_return;           //服务器通知客户端
+	HANDLE p_mutex;           //用于同步客户端的 mutex
+
+	//设定事件初始化，若没创建事件则创建
+	m_command = OpenEvent(EVENT_ALL_ACCESS, NULL, L"shell_input");
+	if (m_command == NULL){
+		m_command = CreateEvent(NULL, FALSE, FALSE, L"shell_input");
 	}
+	// 创建共享文件句柄 
+	HANDLE hMapFile = CreateFileMapping(
+		INVALID_HANDLE_VALUE,   // 物理文件句柄
+		NULL,   // 默认安全级别
+		PAGE_READWRITE,   // 可读可写
+		0,   // 高位文件大小
+		INPUT_SIZE,   // 低位文件大小
+		L"ShareMemory"   // 共享内存名称
+		);
+	
+	for (;;){
+		WaitForSingleObject(m_command, INFINITE);//无限等待
+		// 映射缓存区视图 , 得到指向共享内存的指针
+		LPVOID lpBase = MapViewOfFile(
+			hMapFile,            // 共享内存的句柄
+			FILE_MAP_ALL_ACCESS, // 可读写许可
+			0,
+			0,
+			INPUT_SIZE
+			);
+
+		// 将共享内存数据拷贝到字符串
+		char cmd_inital[INPUT_SIZE] = { 0 };
+		strcpy_s(cmd_inital, (char*)lpBase);
+		string cmd = cmd_inital;
+		parseCmd(cmd);
+		// 解除文件映射
+		UnmapViewOfFile(lpBase);
+		ResetEvent(m_command);
+	}
+
+	
+	// 关闭内存映射文件对象句柄
+	CloseHandle(hMapFile);
+
+	//outputPrompt();
+	//while (getline(cin, cmd)){
+	//	outputPrompt();
+	//}
 	return 1;
 }
 
@@ -254,9 +297,6 @@ int FileSystem::parseCmd(string cmd)
 		else{
 			cout << "copy require two parameters"<<endl;
 		}
-	}
-	else if (cmd == "cls"){
-		system("cls");
 	}
 	else if (cmd == "exit"){
 		exit(0);//退出
