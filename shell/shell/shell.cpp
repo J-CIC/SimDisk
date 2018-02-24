@@ -12,13 +12,13 @@ using namespace std;
 
 
 void parse_cmd(string cmd);
+HANDLE m_command;           //客户端通知服务器
+HANDLE m_return;           //服务器通知客户端
+HANDLE p_mutex;           //用于同步客户端的 mutex
 
 int _tmain(int argc, _TCHAR* argv[])
 {
 
-	HANDLE m_command;           //客户端通知服务器
-	HANDLE m_return;           //服务器通知客户端
-	HANDLE p_mutex;           //用于同步客户端的 mutex
 	//创建进程
 	STARTUPINFO si;
 	PROCESS_INFORMATION pi;
@@ -32,8 +32,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		NULL,           // Process handle not inheritable
 		NULL,           // Thread handle not inheritable
 		FALSE,          // Set handle inheritance to FALSE
-		CREATE_NEW_CONSOLE,              // No creation flags
-		//CREATE_NO_WINDOW,              // No creation flags
+		//CREATE_NEW_CONSOLE,              // No creation flags
+		CREATE_NO_WINDOW,              // No creation flags
 		NULL,           // Use parent's environment block
 		NULL,           // Use parent's starting directory 
 		&si,            // Pointer to STARTUPINFO structure
@@ -43,12 +43,17 @@ int _tmain(int argc, _TCHAR* argv[])
 		cout << "CreateProcess failed" << GetLastError() << endl;
 		return 0;
 	}
-	string cmd;
 	//设定事件初始化，若没创建事件则创建
 	m_command = OpenEvent(EVENT_ALL_ACCESS, NULL, L"shell_input");
 	if (m_command == NULL){
 		m_command = CreateEvent(NULL, FALSE, FALSE, L"shell_input");
 	}
+	m_return = OpenEvent(EVENT_ALL_ACCESS, NULL, L"shell_return");
+	if (m_return == NULL){
+		m_return = CreateEvent(NULL, FALSE, FALSE, L"shell_return");
+	}
+	//输入命令
+	string cmd;
 	while (getline(cin, cmd)){
 		// 创建互斥量
 		HANDLE m_hMutex = CreateMutex(NULL, FALSE, L"my_shell");
@@ -58,9 +63,6 @@ int _tmain(int argc, _TCHAR* argv[])
 		}
 		WaitForSingleObject(m_hMutex, INFINITE);//无限等待
 		parse_cmd(cmd);
-		SetEvent(m_command);//通知服务器
-
-
 		ReleaseMutex(m_hMutex); //释放互斥锁  
 	}
 	// Close process and thread handles. 
@@ -72,7 +74,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 void parse_cmd(string cmd){
 	string initial_cmd = cmd;//最初的指令
-	vector<string>cmd_list;
+	vector<string>cmd_list;//参数列表
 	stringstream s(cmd);
 	string total = cmd;
 	s >> cmd;
@@ -178,7 +180,12 @@ void parse_cmd(string cmd){
 		LPVOID lpBase = MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, INPUT_SIZE);
 		// 复制对应命令 
 		strcpy_s((char*)lpBase, INPUT_SIZE,initial_cmd.c_str() );
-
+		SetEvent(m_command);//通知服务器
+		WaitForSingleObject(m_return, INFINITE);//服务器处理完毕通知客户端
+		char return_val[INPUT_SIZE] = { 0 };
+		strcpy_s(return_val, (char*)lpBase);// 将共享内存数据拷贝到字符串
+		cout << return_val;
+		ResetEvent(m_return);//重置事件
 		// 解除文件映射
 		UnmapViewOfFile(lpBase);
 		// 关闭内存映射文件对象句柄

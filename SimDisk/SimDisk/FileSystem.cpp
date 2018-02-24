@@ -114,6 +114,10 @@ int FileSystem::serve(){
 	if (m_command == NULL){
 		m_command = CreateEvent(NULL, FALSE, FALSE, L"shell_input");
 	}
+	m_return = OpenEvent(EVENT_ALL_ACCESS, NULL, L"shell_return");
+	if (m_return == NULL){
+		m_return = CreateEvent(NULL, FALSE, FALSE, L"shell_return");
+	}
 	// 创建共享文件句柄 
 	HANDLE hMapFile = CreateFileMapping(
 		INVALID_HANDLE_VALUE,   // 物理文件句柄
@@ -139,10 +143,17 @@ int FileSystem::serve(){
 		char cmd_inital[INPUT_SIZE] = { 0 };
 		strcpy_s(cmd_inital, (char*)lpBase);
 		string cmd = cmd_inital;
-		parseCmd(cmd);
-		// 解除文件映射
-		UnmapViewOfFile(lpBase);
-		ResetEvent(m_command);
+		stringstream redirect_stream;//设定cout的重定向留
+		streambuf * backup;//备份
+		cout.rdbuf(redirect_stream.rdbuf());//重定向
+		parseCmd(cmd);//处理命令
+		outputPrompt();//输出提示符
+		string output;//输出
+		output = redirect_stream.str();//复制到输出
+		strcpy_s((char*)lpBase, INPUT_SIZE, output.c_str());//写入共享内存
+		ResetEvent(m_command);//重置事件
+		SetEvent(m_return);//通知客户端处理
+		UnmapViewOfFile(lpBase);// 解除文件映射
 	}
 
 	
