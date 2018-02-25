@@ -56,7 +56,10 @@ int FileSystem::init_user()
 		int id = newfile("/etc/shadow",10240);
 		User rootUser = User("root", "root", 0);//默认账户
 		userLists.push_back(rootUser);//加入用户列表
+		User testUser = User("test", "test", userLists.size());//测试账户
+		userLists.push_back(testUser);//加入用户列表
 		save_user();
+		return 1;
 	}
 	findDentryWithName("/etc/shadow", temp, 2);
 	vector<unsigned int> block_lists;//内容块
@@ -73,6 +76,7 @@ int FileSystem::init_user()
 		User *user = new User();
 		seekAndGet<User>(base_pos + cnt*sizeof(User), *user);
 		userLists.push_back(*user);//推入列表中
+		cnt++;
 	}
 	return 1;
 }
@@ -85,6 +89,8 @@ int FileSystem::save_user()
 		mkdir("/etc");
 		int id = newfile("/etc/shadow", 10240);
 	}
+	temp->inode.i_mode = 7 << 8;
+	temp->inode.i_size = userLists.size()*sizeof(User);
 	vector<unsigned int> block_lists;//内容块
 	readBlockIds(temp->inode, block_lists);//读取内容块
 	int cnt_per_block = s_block.blockSize / sizeof(User);
@@ -96,9 +102,8 @@ int FileSystem::save_user()
 		}
 		unsigned long base_pos = (block_lists[block_idx] - 1) * s_block.blockSize;
 		seekAndSave<User>(base_pos + cnt*sizeof(User), user);
+		cnt++;
 	}
-	temp->inode.i_size = userLists.size()*sizeof(User);
-	temp->inode.i_mode = 7 << 8;
 	write_inode(temp->inode);//保存iNode
 	return 1;
 }
@@ -137,7 +142,7 @@ int FileSystem::serve(){
 		L"usrShareMemory"   // 共享内存名称
 		);
 	for (;;){
-		WaitForSingleObject(m_command, INFINITE);//无限等待
+		DWORD dw = WaitForSingleObject(m_command, INFINITE);//无限等待
 		// 映射缓存区视图 , 得到指向共享内存的指针
 		LPVOID lpBase = MapViewOfFile(
 			hMapFile,            // 共享内存的句柄
@@ -146,7 +151,9 @@ int FileSystem::serve(){
 			0,
 			INPUT_SIZE
 			);
-
+		if (dw == WAIT_TIMEOUT){
+			break;
+		}
 		// 将共享内存数据拷贝到字符串
 		char cmd_inital[INPUT_SIZE] = { 0 };
 		strcpy_s(cmd_inital, (char*)lpBase);
@@ -155,7 +162,10 @@ int FileSystem::serve(){
 		streambuf * backup;//备份
 		cout.rdbuf(redirect_stream.rdbuf());//重定向
 		parseCmd(cmd);//处理命令
-		outputPrompt();//输出提示符
+		if (curr_uid != -1){
+			//正常用户才输出提示符
+			outputPrompt();//输出提示符
+		}
 		string output;//输出
 		output = redirect_stream.str();//复制到输出
 		strcpy_s((char*)lpBase, INPUT_SIZE, output.c_str());//写入共享内存
@@ -189,81 +199,26 @@ int FileSystem::parseCmd(string cmd)
 	if (cmd == "auth"){
 		int u_id = auth(cmd_list[0], cmd_list[1]);
 		if (u_id == -1){
-			cout << "Login Failed"<<endl;
+			generate_token(-1);//生成失败空token，并保存至内存中
 			return ret;
 		}
 		else{
 			generate_token(u_id);//生成校验token，并保存至内存中
-			outputPrompt();
+			ret = 1;
 		}
 	}
 	else{
-		get_shell_user();//获取本次的shell_user
-	}
-	if (cmd == "newfile"){
-		if (cmd_list.size() == 1){
-			ret = newfile(cmd_list[0]);
-			if (ret == -1){
-				cout << "file exists !" << endl;
-			}
-			else if (ret == -2){
-				cout << "name length is not valid" << endl;
-			}
-			else if (ret == -3){
-				cout << "No enough iNode or blocks" << endl;
-			}
+		//获取本次的shell_user
+		if ((curr_uid=get_shell_user()) == -1){
+			cout << "invalid user" << endl;
+			return ret;
 		}
-		else{
-			cout << "newfile accept one parameter" << endl;
-		}
-	}
-	else if (cmd == "dir"){
-		if (cmd_list.size() == 1){
-			ret = ls(cmd_list[0]);
-			if (ret == 0 || ret == 2){
-				cout << "No such directory : " << cmd_list[0] << endl;
-			}
-		}
-		else if (cmd_list.size() == 0){
-			ret = ls();
-		}
-		else{
-			cout << "dir accept less than one parameter"<<endl;
-		}
-	}
-	else if (cmd == "cd"){
-		if (cmd_list.size() >= 1){
-			ret = cd(cmd_list[0]);
-			if (ret == 2||ret ==0){
-				cout << "No such directory : " << cmd_list[0] << endl;
-			}
-		}
-	}
-	else if (cmd == "del"){
-		if (cmd_list.size() == 0){
-			cout << "del accept at least one parameter" << endl;
-		}
-		else{
-			for (auto name : cmd_list){
-				int ret = del(name);
-				if (ret == 0){
-					cout << "file: " <<name <<" not found " << endl;
-				}
-				else if (ret == -1){
-					cout << "file: " << name << "is not file" << endl;
-				}
-			}
-		}
-	}
-	else if (cmd == "md"){
-		if (cmd_list.size() == 0){
-			cout << "mkdir accept at least one parameter" << endl;
-		}
-		else{
-			for (auto name : cmd_list){
-				ret = mkdir(name);
+		//处理命令
+		if (cmd == "newfile"){
+			if (cmd_list.size() == 1){
+				ret = newfile(cmd_list[0]);
 				if (ret == -1){
-					cout << "folder exists !" << endl;
+					cout << "file exists !" << endl;
 				}
 				else if (ret == -2){
 					cout << "name length is not valid" << endl;
@@ -272,70 +227,130 @@ int FileSystem::parseCmd(string cmd)
 					cout << "No enough iNode or blocks" << endl;
 				}
 			}
+			else{
+				cout << "newfile accept one parameter" << endl;
+			}
 		}
-	}
-	else if (cmd == "rd"){
-		if (cmd_list.size() == 0){
-			cout << "del accept at least one parameter" << endl;
+		else if (cmd == "dir"){
+			if (cmd_list.size() == 1){
+				ret = ls(cmd_list[0]);
+				if (ret == 0 || ret == 2){
+					cout << "No such directory : " << cmd_list[0] << endl;
+				}
+			}
+			else if (cmd_list.size() == 0){
+				ret = ls();
+			}
+			else{
+				cout << "dir accept less than one parameter" << endl;
+			}
 		}
-		else{
-			for (auto name : cmd_list){
-				ret = rd(name);
-				if (ret == 3){
-					//非空目录
-					cout << "the directory is not empty, force delete? " << "Y/N :" << endl;
-					string choice;
-					getline(cin, choice);
-					if (choice == "Y"||choice=="y"){
-						ret = rd(name, true);//强制删除
+		else if (cmd == "cd"){
+			if (cmd_list.size() >= 1){
+				ret = cd(cmd_list[0]);
+				if (ret == 2 || ret == 0){
+					cout << "No such directory : " << cmd_list[0] << endl;
+				}
+			}
+		}
+		else if (cmd == "del"){
+			if (cmd_list.size() == 0){
+				cout << "del accept at least one parameter" << endl;
+			}
+			else{
+				for (auto name : cmd_list){
+					int ret = del(name);
+					if (ret == 0){
+						cout << "file: " << name << " not found " << endl;
+					}
+					else if (ret == -1){
+						cout << "file: " << name << "is not file" << endl;
 					}
 				}
-				if (ret == 0|| ret == 2){
-					cout << "No such folder: " << name << endl;
+			}
+		}
+		else if (cmd == "md"){
+			if (cmd_list.size() == 0){
+				cout << "mkdir accept at least one parameter" << endl;
+			}
+			else{
+				for (auto name : cmd_list){
+					ret = mkdir(name);
+					if (ret == -1){
+						cout << "folder exists !" << endl;
+					}
+					else if (ret == -2){
+						cout << "name length is not valid" << endl;
+					}
+					else if (ret == -3){
+						cout << "No enough iNode or blocks" << endl;
+					}
 				}
 			}
 		}
-	}
-	else if (cmd == "cat"){
-		if (cmd_list.size() != 1){
-			cout << "cat accept only one parameter" << endl;
+		else if (cmd == "rd"){
+			if (cmd_list.size() == 0){
+				cout << "del accept at least one parameter" << endl;
+			}
+			else{
+				for (auto name : cmd_list){
+					ret = rd(name);
+					if (ret == 3){
+						//非空目录
+						cout << "the directory is not empty, force delete? " << "Y/N :" << endl;
+						string choice;
+						getline(cin, choice);
+						if (choice == "Y" || choice == "y"){
+							ret = rd(name, true);//强制删除
+						}
+					}
+					if (ret == 0 || ret == 2){
+						cout << "No such folder: " << name << endl;
+					}
+				}
+			}
+		}
+		else if (cmd == "cat"){
+			if (cmd_list.size() != 1){
+				cout << "cat accept only one parameter" << endl;
+			}
+			else{
+				ret = cat(cmd_list[0]);
+				if (ret == 0 || ret == 1){
+					cout << "No such file: " << cmd_list[0] << endl;
+				}
+			}
+		}
+		else if (cmd == "info"){
+			s_block.printInfo();
+		}
+		else if (cmd == "copy"){
+			if (cmd_list.size() == 2){
+				ret = copy(cmd_list[0], cmd_list[1]);
+				if (ret == 0){
+					cout << "No such file: " << cmd_list[0] << endl;
+				}
+				else if (ret == -1){
+					cout << "file exists !" << endl;
+				}
+				else if (ret == -2){
+					cout << "name length is not valid" << endl;
+				}
+				else if (ret == -3){
+					cout << "No enough iNode or blocks" << endl;
+				}
+			}
+			else{
+				cout << "copy require two parameters" << endl;
+			}
+		}
+		else if (cmd == "exit"){
+			exit(0);//退出
 		}
 		else{
-			ret = cat(cmd_list[0]);
-			if (ret == 0||ret == 1){
-				cout << "No such file: " << cmd_list[0] << endl;
-			}
+			if (cmd != "")
+				cout << "unknown command" << endl;
 		}
-	}
-	else if (cmd == "info"){
-		s_block.printInfo();
-	}
-	else if (cmd == "copy"){
-		if (cmd_list.size() == 2){
-			ret = copy(cmd_list[0], cmd_list[1]);
-			if (ret == 0){
-				cout << "No such file: " << cmd_list[0] << endl;
-			}
-			else if (ret == -1){
-				cout << "file exists !" << endl;
-			}
-			else if (ret == -2){
-				cout << "name length is not valid" << endl;
-			}
-			else if (ret == -3){
-				cout << "No enough iNode or blocks" << endl;
-			}
-		}
-		else{
-			cout << "copy require two parameters"<<endl;
-		}
-	}
-	else if (cmd == "exit"){
-		exit(0);//退出
-	}
-	else{
-		if (cmd != "")
-			cout << "unknown command" << endl;
 	}
 	return ret;
 }
@@ -343,18 +358,25 @@ int FileSystem::parseCmd(string cmd)
 //生成登录的token
 int FileSystem::generate_token(int uid){
 	string token = "";//最终保存的token
-	unsigned long c_time = time(NULL);
-	stringstream buf;//生成流用以转换类型
-	buf << c_time;//流中输入信息
-	string time_string;
-	buf >> time_string;//输出到字符
-	for (int i = 0; i < time_string.length(); i++){
-		int rand_num = rand() % 26;//26个字母
-		char character = rand_num + 65 + (rand()%2)*32;//随机大小写字母
-		token += character;
-		token += time_string[i];//插值
+	curr_uid = uid;
+	if (uid != -1){
+		//登录成功才产生token，否则token为空
+		unsigned long c_time = time(NULL);
+		stringstream buf;//生成流用以转换类型
+		buf << c_time;//流中输入信息
+		string time_string;
+		buf >> time_string;//输出到字符
+		for (int i = 0; i < time_string.length(); i++){
+			int rand_num = rand() % 26;//26个字母
+			char character = rand_num + 65 + (rand() % 2) * 32;//随机大小写字母
+			token += character;
+			token += time_string[i];//插值
+		}
+		loginUserLists.insert(pair<string, int>(token, uid));
+		if (uid < userLists.size()){
+			currUser = userLists[uid];
+		}
 	}
-	loginUserLists.insert(pair<string, int>(token, uid));
 	// 映射缓存区视图 , 得到指向共享内存的指针
 	LPVOID lpBase = MapViewOfFile(
 		usrMapFile,            // 共享内存的句柄
@@ -369,13 +391,35 @@ int FileSystem::generate_token(int uid){
 
 //获取本次命令的User
 int FileSystem::get_shell_user(){
-
-	return -1;
+	char token[INPUT_SIZE] = { 0 };
+	// 映射缓存区视图 , 得到指向共享内存的指针
+	LPVOID lpBase = MapViewOfFile(
+		usrMapFile,            // 共享内存的句柄
+		FILE_MAP_ALL_ACCESS, // 可读写许可
+		0,
+		0,
+		INPUT_SIZE
+		);
+	strcpy_s(token, (char*)lpBase);//写入共享内存
+	string key = token;//token复制
+	int u_id = -1;//用户id
+	auto item = loginUserLists.find(key);//寻找对应id
+	if (item != loginUserLists.end()){
+		//找到了登录用户
+		u_id = item->second;
+		if (u_id < userLists.size()){
+			currUser = userLists[u_id];//设定当前用户
+		}
+		else{
+			return -1;//异常状况，按道理不可能出现，以防万一
+		}
+	}
+	return u_id;
 }
 
 //输出提示符
 void FileSystem::outputPrompt(){
-	cout << "root:" << curr_dentry->getPathName() << "# ";
+	cout << currUser.username << ":" << curr_dentry->getPathName() << "# ";
 }
 
 //申请iNode节点,size单位为Byte
@@ -433,6 +477,7 @@ int FileSystem::alloc_inode(unsigned long size, iNode &node,bool is_dentry)
 					bytes[index] = byte | (1 << (7-j));
 					fileDisk.seekg(s_block.inodemap_pos + i*s_block.blockSize, ios::beg);
 					fileDisk.write((char *)bytes, s_block.blockSize);//位图改变整块写回
+					fileDisk.flush();//写回文件
 					is_end = true;//结束
 					break;
 				}
@@ -631,6 +676,7 @@ template<typename T>
 int FileSystem::seekAndSave(unsigned long pos, T& item){
 	fileDisk.seekg(pos, ios::beg);
 	fileDisk.write((char*)&item, sizeof(T));
+	fileDisk.flush();//写回文件
 	return 1;
 }
 
@@ -670,6 +716,7 @@ int FileSystem::destroy_block(int id)
 	//写回
 	fileDisk.seekg(s_block.bitmap_pos + byte_pos);
 	fileDisk.write((char *)&byte, 1);
+	fileDisk.flush();//写回文件
 	vector<unsigned int> list;//清空块内容
 	list.push_back(id);//清空块内容
 	clearBlockContent(list);//清空块内容
@@ -698,6 +745,7 @@ int FileSystem::destroy_inode(int id)
 	//写回
 	fileDisk.seekg(s_block.inodemap_pos + byte_pos);
 	fileDisk.write((char *)&byte, 1);
+	fileDisk.flush();//写回文件
 	return 1;
 }
 
@@ -711,6 +759,7 @@ int FileSystem::clearBlockContent(vector<unsigned int> list)
 	{
 		fileDisk.seekg((item-1)*s_block.blockSize, ios::beg);
 		fileDisk.write(bytes, 1024);
+		fileDisk.flush();//写回文件
 	}
 	return 1;
 }
@@ -833,8 +882,8 @@ int FileSystem::auth(string username, string pwd)
 	strcpy_s(usr_name, 16, username.c_str());//复制用户名
 	strcpy_s(usr_pwd, 16, pwd.c_str());//复制密码
 	for (int i = 0; i < userLists.size(); i++){
-		User currUser = userLists[i];
-		if (currUser.auth(usr_name, usr_pwd)){
+		User user = userLists[i];
+		if (user.auth(usr_name, usr_pwd)){
 			return i;
 		}
 	}

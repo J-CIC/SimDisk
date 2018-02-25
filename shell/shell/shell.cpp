@@ -11,9 +11,11 @@ using namespace std;
 #define INPUT_SIZE 4096
 
 
-void parse_cmd(string cmd);//解析命令
+int parse_cmd(string cmd);//解析命令
 void transfer_cmd(string i_cmd,string cmd);//发送命令
+int login(bool last_wrong = false);//登录
 string auth_token;
+string cmd_result;
 HANDLE m_command;           //客户端通知服务器
 HANDLE m_return;           //服务器通知客户端
 HANDLE p_mutex;           //用于同步客户端的 mutex
@@ -55,6 +57,12 @@ int _tmain(int argc, _TCHAR* argv[])
 	if (m_return == NULL){
 		m_return = CreateEvent(NULL, FALSE, FALSE, L"shell_return");
 	}
+	int login_result = login();//先执行登录
+	while (login_result != 1){
+		login_result = login(true);//重新登录
+	}
+	system("cls");//成功后清屏
+	cout << cmd_result;//补充输出prompt
 	//输入命令
 	string cmd;
 	while (getline(cin, cmd)){
@@ -65,13 +73,36 @@ int _tmain(int argc, _TCHAR* argv[])
 			// 已有互斥量存在
 		}
 		WaitForSingleObject(m_hMutex, INFINITE);//无限等待
-		parse_cmd(cmd);
+		int ret = parse_cmd(cmd);
+		if (ret == -1){
+			transfer_cmd("", "");//获得prompt
+		}
 		ReleaseMutex(m_hMutex); //释放互斥锁  
 	}
 	// Close process and thread handles. 
 	CloseHandle(pi.hProcess);
 	CloseHandle(pi.hThread);
 	return 0;
+}
+
+//登录
+int login(bool last_wrong){
+	string usr_name, usr_pwd;
+	system("cls");
+	if (last_wrong){
+		//上次登录错误
+		cout << "Login Failed!" << endl;
+	}
+	cout << "Input username:" << endl;
+	getline(cin, usr_name);//输入用户名
+	cout << "Input password:" << endl;
+	getline(cin, usr_pwd);//输入密码
+	string cmd = "auth " + usr_name + " " + usr_pwd;
+	parse_cmd(cmd);
+	if (auth_token == ""){
+		return 0;
+	}
+	return 1;
 }
 
 //传输命令
@@ -91,11 +122,11 @@ void transfer_cmd(string initial_cmd,string cmd){
 		char return_val[INPUT_SIZE] = { 0 };
 		strcpy_s(return_val, (char*)lpBase);// 将共享内存数据拷贝到字符串
 		cout << return_val;
+		cmd_result = return_val;//保留输出
 		if (cmd == "auth"){
 			//如果是auth命令，更新token
-			strcpy_s(return_val, (char*)lpBase);// 将共享内存数据拷贝到字符串
+			strcpy_s(return_val, (char*)lpUsr);// 将共享内存数据拷贝到字符串
 			auth_token = return_val;
-			cout << auth_token << endl;
 		}
 		ResetEvent(m_return);//重置事件
 		// 解除文件映射
@@ -110,8 +141,8 @@ void transfer_cmd(string initial_cmd,string cmd){
 	}
 }
 
-
-void parse_cmd(string cmd){
+//解析命令
+int parse_cmd(string cmd){
 	string initial_cmd = cmd;//最初的指令
 	vector<string>cmd_list;//参数列表
 	stringstream s(cmd);
@@ -127,7 +158,16 @@ void parse_cmd(string cmd){
 		}
 		else{
 			cout << "newfile accept one parameter" << endl;
-			return;
+			return -1;
+		}
+	}
+	else if (cmd == "auth"){
+		if (cmd_list.size() == 2){
+
+		}
+		else{
+			cout << "wrong usage" << endl;
+			return -1;
 		}
 	}
 	else if (cmd == "dir"){
@@ -136,7 +176,7 @@ void parse_cmd(string cmd){
 		}
 		else{
 			cout << "dir accept less than one parameter" << endl;
-			return;
+			return -1;
 		}
 	}
 	else if (cmd == "cd"){
@@ -145,13 +185,13 @@ void parse_cmd(string cmd){
 		}
 		else{
 			cout << "cd only accept one parameter" << endl;
-			return;
+			return -1;
 		}
 	}
 	else if (cmd == "del"){
 		if (cmd_list.size() != 1){
 			cout << "del accept only one parameter" << endl;
-			return;
+			return -1;
 		}
 		else{
 
@@ -160,7 +200,7 @@ void parse_cmd(string cmd){
 	else if (cmd == "md"){
 		if (cmd_list.size() != 1){
 			cout << "mkdir accept only one parameter" << endl;
-			return;
+			return -1;
 		}
 		else{
 
@@ -169,7 +209,7 @@ void parse_cmd(string cmd){
 	else if (cmd == "rd"){
 		if (cmd_list.size() != 1){
 			cout << "del accept only one parameter" << endl;
-			return;
+			return -1;
 		}
 		else{
 
@@ -178,7 +218,7 @@ void parse_cmd(string cmd){
 	else if (cmd == "cat"){
 		if (cmd_list.size() != 1){
 			cout << "cat accept only one parameter" << endl;
-			return;
+			return -1;
 		}
 		else{
 
@@ -187,7 +227,7 @@ void parse_cmd(string cmd){
 	else if (cmd == "info"){
 		if (cmd_list.size() > 0){
 			cout << "info command doesn't accept any parameter" << endl;
-			return;
+			return -1;
 		}
 	}
 	else if (cmd == "copy"){
@@ -196,7 +236,7 @@ void parse_cmd(string cmd){
 		}
 		else{
 			cout << "copy require two parameters" << endl;
-			return;
+			return -1;
 		}
 	}
 	else if (cmd == "cls"){
@@ -210,7 +250,8 @@ void parse_cmd(string cmd){
 		{
 			cout << "unknown command" << endl;
 		}
-		return;
+		return -1;
 	}
 	transfer_cmd(initial_cmd,cmd);
+	return 0;
 }

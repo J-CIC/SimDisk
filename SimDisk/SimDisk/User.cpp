@@ -21,6 +21,7 @@ User::~User()
 }
 
 bool User::auth(char* usr_name, char* usr_pwd){
+
 	if (strcmp(usr_name, username)==0&&strcmp(usr_pwd,password)==0){
 		//认证成功
 		return true;
