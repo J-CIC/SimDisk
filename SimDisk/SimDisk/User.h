@@ -10,5 +10,6 @@ public:
 	User();
 	User(string name, string pwd,int uid);
 	~User();
+	bool auth(char*, char*);//验证是否为当前用户
 };
 

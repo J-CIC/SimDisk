@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "FileSystem.h"
-#include <Windows.h>
+
 const string FileSystem::fileName = "disk.bin";
 #define INPUT_SIZE 4096
 
@@ -105,6 +105,7 @@ int FileSystem::save_user()
 
 //服务
 int FileSystem::serve(){
+	srand(time(NULL));//置随机数种子用于生成token
 	HANDLE m_command;           //客户端通知服务器
 	HANDLE m_return;           //服务器通知客户端
 	HANDLE p_mutex;           //用于同步客户端的 mutex
@@ -119,7 +120,7 @@ int FileSystem::serve(){
 		m_return = CreateEvent(NULL, FALSE, FALSE, L"shell_return");
 	}
 	// 创建共享文件句柄 
-	HANDLE hMapFile = CreateFileMapping(
+	hMapFile = CreateFileMapping(
 		INVALID_HANDLE_VALUE,   // 物理文件句柄
 		NULL,   // 默认安全级别
 		PAGE_READWRITE,   // 可读可写
@@ -127,7 +128,14 @@ int FileSystem::serve(){
 		INPUT_SIZE,   // 低位文件大小
 		L"ShareMemory"   // 共享内存名称
 		);
-	
+	usrMapFile = CreateFileMapping(
+		INVALID_HANDLE_VALUE,   // 物理文件句柄
+		NULL,   // 默认安全级别
+		PAGE_READWRITE,   // 可读可写
+		0,   // 高位文件大小
+		INPUT_SIZE,   // 低位文件大小
+		L"usrShareMemory"   // 共享内存名称
+		);
 	for (;;){
 		WaitForSingleObject(m_command, INFINITE);//无限等待
 		// 映射缓存区视图 , 得到指向共享内存的指针
@@ -159,11 +167,9 @@ int FileSystem::serve(){
 	
 	// 关闭内存映射文件对象句柄
 	CloseHandle(hMapFile);
+	CloseHandle(usrMapFile);
 
-	//outputPrompt();
-	//while (getline(cin, cmd)){
-	//	outputPrompt();
-	//}
+
 	return 1;
 }
 
@@ -178,6 +184,21 @@ int FileSystem::parseCmd(string cmd)
 	string temp;
 	while (s >> temp){
 		cmd_list.push_back(temp);
+	}
+	//如果用户执行登录操作，则进行单独判断
+	if (cmd == "auth"){
+		int u_id = auth(cmd_list[0], cmd_list[1]);
+		if (u_id == -1){
+			cout << "Login Failed"<<endl;
+			return ret;
+		}
+		else{
+			generate_token(u_id);//生成校验token，并保存至内存中
+			outputPrompt();
+		}
+	}
+	else{
+		get_shell_user();//获取本次的shell_user
 	}
 	if (cmd == "newfile"){
 		if (cmd_list.size() == 1){
@@ -317,6 +338,39 @@ int FileSystem::parseCmd(string cmd)
 			cout << "unknown command" << endl;
 	}
 	return ret;
+}
+
+//生成登录的token
+int FileSystem::generate_token(int uid){
+	string token = "";//最终保存的token
+	unsigned long c_time = time(NULL);
+	stringstream buf;//生成流用以转换类型
+	buf << c_time;//流中输入信息
+	string time_string;
+	buf >> time_string;//输出到字符
+	for (int i = 0; i < time_string.length(); i++){
+		int rand_num = rand() % 26;//26个字母
+		char character = rand_num + 65 + (rand()%2)*32;//随机大小写字母
+		token += character;
+		token += time_string[i];//插值
+	}
+	loginUserLists.insert(pair<string, int>(token, uid));
+	// 映射缓存区视图 , 得到指向共享内存的指针
+	LPVOID lpBase = MapViewOfFile(
+		usrMapFile,            // 共享内存的句柄
+		FILE_MAP_ALL_ACCESS, // 可读写许可
+		0,
+		0,
+		INPUT_SIZE
+		);
+	strcpy_s((char*)lpBase, INPUT_SIZE, token.c_str());//写入共享内存
+	return 1;
+}
+
+//获取本次命令的User
+int FileSystem::get_shell_user(){
+
+	return -1;
 }
 
 //输出提示符
@@ -616,6 +670,9 @@ int FileSystem::destroy_block(int id)
 	//写回
 	fileDisk.seekg(s_block.bitmap_pos + byte_pos);
 	fileDisk.write((char *)&byte, 1);
+	vector<unsigned int> list;//清空块内容
+	list.push_back(id);//清空块内容
+	clearBlockContent(list);//清空块内容
 	return 1;
 }
 
@@ -763,6 +820,25 @@ int FileSystem::readBlockIds(iNode inode, vector<unsigned int> &blocks_list)
 		}
 	}
 	return 1;
+}
+
+//登录认证操作，登录失败返回-1，否则返回对应用户的内存下标
+int FileSystem::auth(string username, string pwd)
+{
+	if (username.length() > 16 || pwd.length() > 32){
+		//当用户名或密码长度超过最大限制的时候，应该在shell处限制
+	}
+	char usr_name[17] = { 0 };
+	char usr_pwd[33] = { 0 };
+	strcpy_s(usr_name, 16, username.c_str());//复制用户名
+	strcpy_s(usr_pwd, 16, pwd.c_str());//复制密码
+	for (int i = 0; i < userLists.size(); i++){
+		User currUser = userLists[i];
+		if (currUser.auth(usr_name, usr_pwd)){
+			return i;
+		}
+	}
+	return -1;
 }
 
 //复制文件，可从本机或模拟磁盘中复制

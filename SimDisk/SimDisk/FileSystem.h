@@ -4,6 +4,8 @@
 #include "iNode.h"
 #include "dentry.h"
 #include "User.h"
+#include <Windows.h>
+#include <map>
 #include "toolkit.h"
 
 class FileSystem
@@ -11,9 +13,12 @@ class FileSystem
 public:
 	const static int FOLDER_TYPE = 1;
 	const static int FILE_TYPE = 2;
+	HANDLE hMapFile;//消息共享内存
+	HANDLE usrMapFile;//用户token共享内存
 	static const string fileName;//磁盘所在的文件名
 	User currUser;//当前用户名字
 	vector<User> userLists;//用户列表
+	map<string,int> loginUserLists;//登录的用户列表
 	superBlock s_block;//超级块
 	iNode root;//根节点
 	dentry root_dentry;//根目录
@@ -36,6 +41,9 @@ private:
 	int read_inode(int ino, iNode &node);//读取iNode节点信息
 	int write_inode(iNode &node);//更新iNode信息
 	int clearBlockContent(vector<unsigned int> list);//清空块内容
+	int auth(string username, string pwd);//登录认证操作
+	int generate_token(int u_id);//生成认证token，用于每次校验
+	int get_shell_user();//获取当前的shell的用户，返回的是userlists中的下标
 	int copy(string from, string to);
 	int newfile(string name, unsigned long size=0);//创建文件
 	int mkdir(string name);//创建文件夹
