@@ -17,7 +17,6 @@ public:
 	HANDLE usrMapFile;//用户token共享内存
 	static const string fileName;//磁盘所在的文件名
 	User currUser;//当前用户名字
-	int curr_uid;//当前用户id
 	vector<User> userLists;//用户列表
 	map<string,int> loginUserLists;//登录的用户列表
 	superBlock s_block;//超级块

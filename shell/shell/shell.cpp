@@ -7,6 +7,7 @@
 #include <iostream>
 #include <vector>
 #include <sstream>
+#include <conio.h>  
 using namespace std;
 #define INPUT_SIZE 4096
 
@@ -96,7 +97,22 @@ int login(bool last_wrong){
 	cout << "Input username:" << endl;
 	getline(cin, usr_name);//输入用户名
 	cout << "Input password:" << endl;
-	getline(cin, usr_pwd);//输入密码
+	char character;
+	usr_pwd = "";
+	while ((character = _getch())!=13){
+		if (character == 8){
+			//处理退格
+			if (usr_pwd.size() > 0){
+				cout << "\b \b";
+				usr_pwd.resize(usr_pwd.size() - 1);
+			}
+		}
+		else if (character >= 32 && character <= 126){
+			usr_pwd += character;
+			cout << "*";
+			//未考虑方向键等，因为双字节难处理
+		}
+	}
 	string cmd = "auth " + usr_name + " " + usr_pwd;
 	parse_cmd(cmd);
 	if (auth_token == ""){
@@ -121,12 +137,14 @@ void transfer_cmd(string initial_cmd,string cmd){
 		WaitForSingleObject(m_return, INFINITE);//服务器处理完毕通知客户端
 		char return_val[INPUT_SIZE] = { 0 };
 		strcpy_s(return_val, (char*)lpBase);// 将共享内存数据拷贝到字符串
-		cout << return_val;
 		cmd_result = return_val;//保留输出
 		if (cmd == "auth"){
 			//如果是auth命令，更新token
 			strcpy_s(return_val, (char*)lpUsr);// 将共享内存数据拷贝到字符串
 			auth_token = return_val;
+		}
+		else{
+			cout << cmd_result;
 		}
 		ResetEvent(m_return);//重置事件
 		// 解除文件映射

@@ -162,10 +162,7 @@ int FileSystem::serve(){
 		streambuf * backup;//备份
 		cout.rdbuf(redirect_stream.rdbuf());//重定向
 		parseCmd(cmd);//处理命令
-		if (curr_uid != -1){
-			//正常用户才输出提示符
-			outputPrompt();//输出提示符
-		}
+		outputPrompt();//输出提示符
 		string output;//输出
 		output = redirect_stream.str();//复制到输出
 		strcpy_s((char*)lpBase, INPUT_SIZE, output.c_str());//写入共享内存
@@ -209,7 +206,7 @@ int FileSystem::parseCmd(string cmd)
 	}
 	else{
 		//获取本次的shell_user
-		if ((curr_uid=get_shell_user()) == -1){
+		if (get_shell_user() == -1){
 			cout << "invalid user" << endl;
 			return ret;
 		}
@@ -358,7 +355,6 @@ int FileSystem::parseCmd(string cmd)
 //生成登录的token
 int FileSystem::generate_token(int uid){
 	string token = "";//最终保存的token
-	curr_uid = uid;
 	if (uid != -1){
 		//登录成功才产生token，否则token为空
 		unsigned long c_time = time(NULL);
