@@ -32,6 +32,9 @@ FileSystem::FileSystem()
 		fileDisk.open(fileName, ios::binary | ios::in | ios::out);
 		int ret = alloc_inode(272384, root, true);//设置根节点
 		root.i_size = 0;
+		unsigned short t_mode = 1;
+		t_mode = t_mode << 14;
+		root.i_mode = t_mode + (7 << 8) + (7 << 4) + 7;//设定为文件夹777权限
 		seekAndSave<iNode>(s_block.inode_table, root);
 	}
 	seekAndGet<superBlock>(0, s_block);
@@ -52,12 +55,13 @@ int FileSystem::init_user()
 	dentry * temp;
 	if (findDentryWithName("/etc/shadow", temp, 2) != 2){
 		//shadow文件不存在
-		mkdir("/etc");
-		int id = newfile("/etc/shadow",10240);
 		User rootUser = User("root", "root", 0);//默认账户
+		currUser = rootUser;
 		userLists.push_back(rootUser);//加入用户列表
 		User testUser = User("test", "test", userLists.size());//测试账户
 		userLists.push_back(testUser);//加入用户列表
+		mkdir("/etc");
+		int id = newfile("/etc/shadow", 10240);
 		save_user();
 		return 1;
 	}
@@ -180,6 +184,36 @@ int FileSystem::serve(){
 	return 1;
 }
 
+//检查权限，需要的权限access_type用rwx的整数表示
+bool FileSystem::checkAccess(int access_type, iNode node){
+	bool ret_val = false;
+	if (currUser.u_id == 0){
+		//管理员
+		return true;
+	}
+	if (currUser.u_id == node.i_uid){
+		//属于当前用户的权限
+		int access = node.i_mode;//所拥有的权限
+		int mask = (1 << 2) + (1 << 1) + 1;
+		mask = mask << 8;//获取本用户权限的掩码
+		ret_val = (access_type << 8)&(mask&access);
+	}
+	else if (currUser.g_id == node.i_gid){
+		//属于当前用户组的权限
+		int access = node.i_mode;//所拥有的权限
+		int mask = (1 << 2) + (1 << 1) + 1;
+		mask = mask << 4;//获取本用户权限的掩码
+		ret_val = (access_type << 4)&(mask&access);
+	}
+	else{
+		//其他人的权限
+		int access = node.i_mode;//所拥有的权限
+		int mask = (1 << 2) + (1 << 1) + 1;//获取本用户权限的掩码
+		ret_val = access_type&(mask&access);
+	}
+	return ret_val;
+}
+
 //解析命令
 int FileSystem::parseCmd(string cmd)
 {
@@ -261,7 +295,7 @@ int FileSystem::parseCmd(string cmd)
 						cout << "file: " << name << " not found " << endl;
 					}
 					else if (ret == -1){
-						cout << "file: " << name << "is not file" << endl;
+						cout << "file: " << name << " is not file" << endl;
 					}
 				}
 			}
@@ -339,6 +373,18 @@ int FileSystem::parseCmd(string cmd)
 			}
 			else{
 				cout << "copy require two parameters" << endl;
+			}
+		}
+		else if (cmd=="chmod"){
+			stringstream temp(cmd_list[1]);
+			int mode;
+			temp >> mode;
+			ret = chmod(cmd_list[0], mode);
+			if (ret == 0){
+				cout << "file not exists" << endl;
+			}
+			else if (ret == -1){
+				cout << "invalid mode" << endl;
 			}
 		}
 		else if (cmd == "exit"){
@@ -488,11 +534,11 @@ int FileSystem::alloc_inode(unsigned long size, iNode &node,bool is_dentry)
 	vector<unsigned int> block_list;
 	alloc_blocks(blocks_needed, block_list);//申请磁盘块
 	node = iNode(inode_no,size,blocks_needed,block_list);
-	node.i_mode = (7<<8)+(7<<4)+7;//777
+	node.i_mode = (6<<8)+(6<<4)+4;//664的默认权限
 	if (is_dentry){
 		unsigned short mode = 1;
 		mode = mode << 14;
-		node.i_mode = mode + (7 << 8) + (7 << 4) + 7;//设定为文件夹
+		node.i_mode = mode + (7 << 8) + (5 << 4) + 5;//设定为文件夹755的默认权限
 	}
 	node.i_uid = currUser.u_id;
 	node.i_gid = currUser.u_id;
@@ -867,6 +913,38 @@ int FileSystem::readBlockIds(iNode inode, vector<unsigned int> &blocks_list)
 	return 1;
 }
 
+//修改文件权限，mode为10进制的数字
+int FileSystem::chmod(string name, int mode){
+	dentry * temp_dentry;
+	int ret = findDentryWithName(name, temp_dentry);
+	if (ret <= 0){
+		return ret;
+	}
+	//检查权限
+	if (!checkAccess(WRITE_ACCESS, temp_dentry->inode)){
+		cout << "Access Deny" << endl;
+		return ACCESS_DENY;
+	}
+	if (mode <= 0 || mode > 1000){
+		return -1;//mode无效
+	}
+	int idx_3 = (mode % 1000) / 100;
+	int idx_2 = (mode % 100) / 10;
+	int idx_1 = mode % 10;
+	if (idx_1 > 7 || idx_2 > 7 || idx_3 > 7){
+		return -1;//mode无效
+	}
+	if (temp_dentry->is_dir()){
+		unsigned short t_mode = 1;
+		t_mode = t_mode << 14;
+		temp_dentry->inode.i_mode = t_mode + (idx_3 << 8) + (idx_2 << 4) + idx_1;//设定为文件夹权限
+	}
+	else{
+		temp_dentry->inode.i_mode = (idx_3 << 8) + (idx_2 << 4) + idx_1;//设定为文件权限
+	}
+	return 1;
+}
+
 //登录认证操作，登录失败返回-1，否则返回对应用户的内存下标
 int FileSystem::auth(string username, string pwd)
 {
@@ -937,6 +1015,12 @@ int FileSystem::copy(string from, string to){
 			//未找到文件
 			return 0;
 		}
+		//权限检查
+		if (!checkAccess(READ_ACCESS, fromDentry->inode)){
+			//无权限
+			cout << "Access Deny" << endl;
+			return ACCESS_DENY;
+		}
 		//获取读取的内容
 		vector<unsigned int> read_list;
 		readBlockIds(fromDentry->inode, read_list);
@@ -970,8 +1054,13 @@ int FileSystem::copy(string from, string to){
 			//未找到文件
 			return 0;
 		}
+		//判断是否有读权限
+		if (!checkAccess(READ_ACCESS, fromDentry->inode)){
+			cout << "Access Deny" << endl;
+			return ACCESS_DENY;
+		}
 		ret = newfile(to, fromDentry->inode.i_size);
-		if (ret == -1){
+		if (ret < 0){
 			//iNode数目不足或block数目不足
 			return ret;
 		}
@@ -1019,16 +1108,21 @@ int FileSystem::newfile(string filename,unsigned long size)
 	if (file_name.length() <= 0){
 		return -2;//文件名长度不合法
 	}
-	int ret = findDentry(dir_list, temp_dentry, filename[0],FILE_TYPE);//判断是否存在
-	if (ret == 2){
-		//存在文件
-		return -1;
-	}
+	int ret = findDentry(dir_list, temp_dentry, filename[0],FILE_TYPE);//用于判断是否存在
 	//去掉文件夹名字后的目录字符串
 	dir_list.resize(dir_list.size() - 1);
-	ret = findDentry(dir_list, temp_dentry, filename[0]);//寻找父文件夹
-	if (ret == 0){
+	int ret2 = findDentry(dir_list, temp_dentry, filename[0]);//用于寻找父文件夹
+	if (ret2 == 0){
 		return 0;
+	}
+	//判断是否有写权限
+	if (!checkAccess(WRITE_ACCESS, temp_dentry->inode)){
+		cout << "Access Deny" << endl;
+		return ACCESS_DENY;
+	}
+	if (ret == FILE_TYPE || ret == FOLDER_TYPE){
+		//存在文件或文件夹同名
+		return -1;
 	}
 	iNode file_node;
 	ret = alloc_inode(size, file_node);
@@ -1055,16 +1149,21 @@ int FileSystem::mkdir(string filename)
 	if (folder_name.length() <= 0){
 		return -2;//文件名长度不合法
 	}
-	int ret = findDentry(dir_list, temp_dentry, filename[0]);//判断是否存在
-	if (ret == 1){
-		//存在文件夹
-		return -1;
-	}
+	int ret = findDentry(dir_list, temp_dentry, filename[0]);//用于判断是否存在
 	//去掉文件夹名字后的目录字符串
 	dir_list.resize(dir_list.size() - 1);
-	ret = findDentry(dir_list, temp_dentry,filename[0]);//寻找父文件夹
-	if (ret == 0){
+	int ret2 = findDentry(dir_list, temp_dentry,filename[0]);//用于寻找父文件夹
+	if (ret2 == 0){
 		return 0;
+	}
+	//判断是否有写权限
+	if (!checkAccess(WRITE_ACCESS, temp_dentry->inode)){
+		cout << "Access Deny" << endl;
+		return ACCESS_DENY;
+	}
+	if (ret == FILE_TYPE || ret == FOLDER_TYPE){
+		//存在文件夹或文件同名
+		return -1;
 	}
 	iNode dir_node;
 	ret = alloc_inode(0, dir_node, true);
@@ -1083,6 +1182,12 @@ int FileSystem::mkdir(string filename)
 int FileSystem::cd(string filename){
 	dentry *temp;
 	int ret = findDentryWithName(filename, temp);
+	//判断是否有执行权限
+	if (!checkAccess(EXEC_ACCESS, temp->inode)){
+		//无权限
+		cout << "Access Deny" << endl;
+		return ACCESS_DENY;
+	}
 	if (ret == 1){
 		curr_dentry = temp;
 	}
@@ -1108,6 +1213,12 @@ int FileSystem::rd(string filename,bool force)
 		return 2;
 	}
 	else if (ret == 1){
+		//判断是否有写权限
+		if (!checkAccess(WRITE_ACCESS, temp_dentry->inode)){
+			//无权限
+			cout << "Access Deny" << endl;
+			return ACCESS_DENY;
+		}
 		//文件夹格式
 		if (temp_dentry->inode.i_size == 0){
 			//空目录
@@ -1158,6 +1269,12 @@ int FileSystem::del(string filename){
 	}
 	else if (ret == 2){
 		//是文件类型
+		//判断是否有写权限
+		if (!checkAccess(WRITE_ACCESS, temp_dentry->inode)){
+			//无权限
+			cout << "Access Deny" << endl;
+			return ACCESS_DENY;
+		}
 		withdraw_node(temp_dentry->inode);//收回iNode节点
 		temp_dentry->parent->removeChild(temp_dentry);//移除内存内的项
 		SaveDentry(*temp_dentry->parent);//保存父目录的信息修改
@@ -1176,6 +1293,12 @@ int FileSystem::cat(string filename){
 	int ret = findDentryWithName(filename, temp, FILE_TYPE);
 	if (ret == 0||ret==1){
 		return ret;
+	}
+	//判断是否有读权限
+	if (!checkAccess(READ_ACCESS, temp->inode)){
+		//无权限
+		cout << "Access Deny" << endl;
+		return ACCESS_DENY;
 	}
 	readBlockIds(temp->inode, temp->block_list);//读取block
 	char *content = new char[s_block.blockSize];
@@ -1271,18 +1394,17 @@ int FileSystem::findDentry(vector<string> list,dentry *&p_dentry,char firstChar,
 						for (auto item : p_dentry->child_list){
 							InitDentry(*item);
 						}
-						//若不是路径上的最后一个，则必须是文件类型
-						if (type == FOLDER_TYPE || item != list[list.size() - 1]){
-							ret = FOLDER_TYPE;//找的是文件夹
-							break;
+						ret = FOLDER_TYPE;//找到了文件夹 
+						if (item == list[list.size() - 1]){
+							break;//找到了字符串路径末尾，直接退出
 						}
 					}
 					else{
 						p_dentry = child_dentry;
+						ret = FILE_TYPE;//找到了文件夹 
 						//若是路径上的最后一个，则看是不是寻找的文件
-						if (type == FILE_TYPE && item == list[list.size() - 1]){
-							ret = FILE_TYPE;//找的是文件
-							break;
+						if (item == list[list.size() - 1]){
+							break;//找到了字符串路径末尾，直接退出
 						}
 					}
 				}

@@ -11,8 +11,12 @@
 class FileSystem
 {
 public:
-	const static int FOLDER_TYPE = 1;
-	const static int FILE_TYPE = 2;
+	const static int FOLDER_TYPE = 1;//文件夹类型
+	const static int FILE_TYPE = 2;//文件类型
+	const static int READ_ACCESS = 4;//读权限
+	const static int WRITE_ACCESS = 2;//写权限
+	const static int EXEC_ACCESS = 1;//执行权限
+	const static int ACCESS_DENY = -100;//权限不足
 	HANDLE hMapFile;//消息共享内存
 	HANDLE usrMapFile;//用户token共享内存
 	static const string fileName;//磁盘所在的文件名
@@ -52,6 +56,7 @@ private:
 	int cat(string filename);//读取文件并显示
 	int cd(string filename);//切换工作目录
 	int ls(string filename="");//展示目录
+	int chmod(string filename, int i_mode);//修改文件权限
 	vector<string> getUsers();//获取用户列表
 	//用名称寻找目录或文件，指针引用，因为可能要修改地址，type默认寻找文件夹
 	int findDentryWithName(string name, dentry *&p_dentry, int type = FOLDER_TYPE);
@@ -62,4 +67,5 @@ private:
 	template<typename T> int seekAndGet(unsigned long pos, T &item);//定位指针并读取
 	template<typename T> int seekAndSave(unsigned long pos, T &item);//定位指针并存储
 	int readBlockIds(iNode inode, vector<unsigned int> &blocks_list);//读取对应iNode的内容块，不包含间接块
+	bool checkAccess(int access_type, iNode node);//检查权限，需要的权限access_type用rwx的整数表示
 };

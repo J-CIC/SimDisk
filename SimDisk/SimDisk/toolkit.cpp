@@ -9,11 +9,11 @@ string num2permission(int n)
 	if (n&use_mask){
 		ret[0] = 'd';
 	}
-	char res[3] = { 'r', 'w', 'x' };
+	char res[3] = { 'x', 'w', 'r' };
 	for (int i = 0; i < 3; i++){
 		for (int j = 0; j < 3; j++){
 			use_mask = mask << (i + j * 4);
-			int pos = 7 + i - j * 3;
+			int pos = 9 - i - j * 3;
 			if (use_mask&n){
 				ret[pos] = res[i];
 			}

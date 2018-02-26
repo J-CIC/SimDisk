@@ -60,7 +60,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	}
 	int login_result = login();//先执行登录
 	while (login_result != 1){
-		login_result = login(true);//重新登录
+		login_result = login(true);//失败重新登录
 	}
 	system("cls");//成功后清屏
 	cout << cmd_result;//补充输出prompt
@@ -254,6 +254,12 @@ int parse_cmd(string cmd){
 		}
 		else{
 			cout << "copy require two parameters" << endl;
+			return -1;
+		}
+	}
+	else if (cmd == "chmod"){
+		if (cmd_list.size() != 2){
+			cout << "chmod only accept 2 parameter" << endl;
 			return -1;
 		}
 	}
