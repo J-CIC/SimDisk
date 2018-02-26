@@ -58,7 +58,7 @@ int FileSystem::init_user()
 		User rootUser = User("root", "root", 0);//默认账户
 		currUser = rootUser;
 		userLists.push_back(rootUser);//加入用户列表
-		User testUser = User("test", "test", userLists.size());//测试账户
+		User testUser = User("test", "test", userLists[userLists.size()-1].u_id+1);//测试账户
 		userLists.push_back(testUser);//加入用户列表
 		mkdir("/etc");
 		int id = newfile("/etc/shadow", 10240);
